@@ -22,6 +22,7 @@ def get_all_file_paths() -> List[Tuple[str, str, str, str]]:
     parameter_files = []
     for parameter_folder in parameter_folders:
         files = os.listdir(parameter_folder)
+        files = [file for file in files if not file.startswith('.')]
         for file in files:
             parameter_files.append((parameter_folder, file))
 
