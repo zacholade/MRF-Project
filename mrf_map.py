@@ -35,10 +35,8 @@ class PixelwiseDataset(Dataset):
 
     @staticmethod
     def collate_fn(batch):
-        data = [item[0] for item in batch]
-        labels = [item[1] for item in batch]
-        data = torch.FloatTensor(data)
-        labels = torch.FloatTensor(labels)
+        data = torch.FloatTensor([item[0] for item in batch])
+        labels = torch.FloatTensor([item[1] for item in batch])
         return [data, labels]
 
     @classmethod
