@@ -1,49 +1,74 @@
-from typing import List
-
 import numpy as np
+from torch.utils.data import IterableDataset, DataLoader
 
 
-class MRFMap:
-    def __init__(self, t1_map, t2_map, pd_map, fingerprint_map):
-        self.t1_map = t1_map
-        self.t2_map = t2_map
-        self.pd_map = pd_map
-        self.fingerprint_map = fingerprint_map
-        assert self.t1_map.shape == self.t2_map.shape == self.pd_map.shape
-        self.mask_t1_map = np.ma.masked_not_equal(t1_map, 0)
-        self.mask_t2_map = np.ma.masked_not_equal(t2_map, 0)
-        self.mask = np.logical_and(self.mask_t1_map, self.mask_t2_map)
+class PixelwiseDataset(IterableDataset):
+    def __init__(self,
+                 data,
+                 labels,
+                 batch_size: int = 0,
+                 shuffle: bool = False,
+                 *args,
+                 **kwargs):
+        super().__init__()
+        self.data = data
+        self.labels = labels
+        self.batch_size = batch_size
 
-    @property
-    def shape_x(self):
-        assert self.t1_map.shape == self.t2_map.shape == self.pd_map.shape
-        return self.t1_map.shape[0]
-
-    @property
-    def shape_y(self):
-        assert self.t1_map.shape == self.t2_map.shape == self.pd_map.shape
-        return self.t1_map.shape[1]
+        self.indices = None
+        self._shuffle = shuffle
 
     @property
-    def shape_z(self):
-        return 1000  # Always working with fingerprints with 1000 timepoints.
+    def num_columns(self):
+        return self.labels.shape[0]
+
+    @property
+    def num_rows(self):
+        return self.labels.shape[1]
+
+    @property
+    def num_pixels(self):
+        return self.num_columns * self.num_rows
+
+    @property
+    def shuffle(self) -> bool:
+        return self._shuffle
+
+    @shuffle.setter
+    def shuffle(self, value: bool):
+        self.indices = np.arange(self.num_pixels) if value else None
+
+    def __len__(self):
+        return (self.num_columns * self.num_rows) // self.batch_size
+
+    def __getitem__(self, index):
+        index = self.indices[index] if self.shuffle else index
+        x = index // self.num_columns
+        y = index % self.num_columns
+        return self.data[x][y], self.labels[x][y]
 
     def __iter__(self):
         """
         Iterates through t1/t2/pd/fp on a per pixel basis.
         :return: t1_p, t2_p, pd_p, fp_p
         """
-        x_length, y_length = self.t1_map.shape
-        for x in range(x_length):
-            for y in range(y_length):
-                t1_p, t2_p, pd_p, fp_p = self.t1_map[x][y], self.t2_map[x][y], self.pd_map[x][y], self.fingerprint_map[x][y]
-                if t1_p == 0 and t2_p == 0:
-                    continue
-                yield t1_p, t2_p, pd_p, fp_p
+        for i in range(self.num_pixels):
+            yield self[i]
 
     @classmethod
-    def from_scan_and_fp(cls, scan, fp):
-        scan = np.transpose(scan, axes=(2, 0, 1))
-        # Multiply by 1000 to convert to 1000
-        t1, t2, pd = scan[0] * 1000, scan[1] * 1000, scan[2]
-        return cls(t1, t2, pd, fp)
+    def from_file_name(cls, filename, *args, **kwargs):
+        fingerprint_path, fingerprint_extension = "Data/MRF_maps/ExactFingerprintMaps/Train/", ".npz"
+        with open(f"{fingerprint_path}{filename}{fingerprint_extension}", "rb") as f:
+            data = np.load(f)['arr_0']
+
+        parameter_path, parameter_extension = "Data/MRF_maps/ParameterMaps/Train/", ".npy"
+        with open(f"{parameter_path}{filename}{parameter_extension}", "rb") as f:
+            labels = np.load(f)
+
+        # Multiply by 1000 to convert to ms
+        labels = np.transpose(labels, axes=(2, 0, 1))
+        t1, t2, pd = labels[0] * 1000, labels[1] * 1000, labels[2]
+        labels = np.asarray([t1, t2, pd])
+        labels = np.transpose(labels, axes=(2, 0, 1))
+        return cls(data, labels, *args, **kwargs)
+

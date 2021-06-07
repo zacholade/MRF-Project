@@ -1,10 +1,14 @@
+from typing import Iterator
+
 import numpy as np
 import matplotlib.pyplot as plt
-from itertools import islice
+import itertools
 
 import typing
 
 from mrf_map import MRFMap
+import torch.utils.data
+
 
 fp_folder = "Data/MRF_maps/ExactFingerprintMaps/Train/"
 parameter_folder = "Data/MRF_maps/ParameterMaps/Train/"
@@ -19,14 +23,30 @@ with open(parameter_folder + parameter_file, "rb") as f:
     scan = np.load(f)
 
 
+class TemporalScan(torch.utils.data.IterableDataset):
+    def __init__(self, dataset: MRFMap, batch_size: int = 1):
+        super().__init__()
+        self.dataset = dataset
+        self._iter = iter(dataset)
+        self.batch_size = batch_size
 
+    def __iter__(self) -> Iterator:
+        """
+        Iterates over all data on a per-pixel basis
+        """
+        for t1_p, t2_p, pd_p, fp_p in iter(self.dataset):
+            if t1_p != 0 and t2_p != 0:
+                yield t1_p, t2_p, pd_p, fp_p
 
-def batched_data(generator: typing.Iterable, batch_size: int = 1):
-    return list(islice(generator, batch_size))
+    def __getitem__(self, index):
+        ...
+
 
 
 mrf_map = MRFMap.from_scan_and_fp(scan, fp)
+batch_size = 10
 data_generator = iter(mrf_map)
+next_10_elements = list(itertools.islice(data_generator, batch_size))
 
 
 
