@@ -1,8 +1,9 @@
 import numpy as np
-from torch.utils.data import IterableDataset, DataLoader
+import torch
+from torch.utils.data import Dataset, DataLoader
 
 
-class PixelwiseDataset(IterableDataset):
+class PixelwiseDataset(Dataset):
     def __init__(self,
                  data,
                  labels,
@@ -32,13 +33,13 @@ class PixelwiseDataset(IterableDataset):
         y = index % self.num_columns
         return self.data[x][y], self.labels[x][y]
 
-    def __iter__(self):
-        """
-        Iterates through t1/t2/pd/fp on a per pixel basis.
-        :return: t1_p, t2_p, pd_p, fp_p
-        """
-        for i in range(self.num_pixels):
-            yield self[i]
+    @staticmethod
+    def collate_fn(batch):
+        data = [item[0] for item in batch]
+        labels = [item[1] for item in batch]
+        data = torch.FloatTensor(data)
+        labels = torch.FloatTensor(labels)
+        return [data, labels]
 
     @classmethod
     def from_file_name(cls, filename, *args, **kwargs):
@@ -50,10 +51,22 @@ class PixelwiseDataset(IterableDataset):
         with open(f"{parameter_path}{filename}{parameter_extension}", "rb") as f:
             labels = np.load(f)
 
-        # Multiply by 1000 to convert to ms
+        # Unpack t1 and t2 so that we can multiply by 1000 to convert to ms.
+        # Then repack to original shape.
         labels = np.transpose(labels, axes=(2, 0, 1))
         t1, t2, pd = labels[0] * 1000, labels[1] * 1000, labels[2]
         labels = np.asarray([t1, t2, pd])
-        labels = np.transpose(labels, axes=(2, 0, 1))
+        labels = np.transpose(labels, axes=(1, 2, 0))
         return cls(data, labels, *args, **kwargs)
 
+
+if __name__ == "__main__":
+    dataset_loader = DataLoader(PixelwiseDataset.from_file_name("subj1_fisp_slc4_4"),
+                                batch_size=1000,
+                                shuffle=True,
+                                pin_memory=True,
+                                collate_fn=PixelwiseDataset.collate_fn)
+
+    i = iter(dataset_loader)
+    data, labels = next(i)
+    data.cuda()
