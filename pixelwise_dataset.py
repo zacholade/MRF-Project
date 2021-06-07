@@ -61,10 +61,10 @@ class PixelwiseDataset(Dataset):
 if __name__ == "__main__":
     dataset_loader = DataLoader(PixelwiseDataset.from_file_name("subj1_fisp_slc4_4"),
                                 batch_size=1000,
-                                shuffle=True,
+                                shuffle=False,
                                 pin_memory=True,
                                 collate_fn=PixelwiseDataset.collate_fn)
 
     i = iter(dataset_loader)
     data, labels = next(i)
-    data.cuda()
+    data.cuda(), labels.cuda()
