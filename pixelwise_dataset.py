@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 
 class PixelwiseDataset(Dataset):
@@ -40,12 +40,12 @@ class PixelwiseDataset(Dataset):
         return [data, labels]
 
     @classmethod
-    def from_file_name(cls, filename, *args, **kwargs):
-        fingerprint_path, fingerprint_extension = "Data/MRF_maps/ExactFingerprintMaps/Train/", ".npz"
+    def from_file_name(cls, folder, filename, *args, **kwargs):
+        fingerprint_path, fingerprint_extension = f"Data/MRF_maps/ExactFingerprintMaps/{folder}/", ".npz"
         with open(f"{fingerprint_path}{filename}{fingerprint_extension}", "rb") as f:
             data = np.load(f)['arr_0']
 
-        parameter_path, parameter_extension = "Data/MRF_maps/ParameterMaps/Train/", ".npy"
+        parameter_path, parameter_extension = f"Data/MRF_maps/ParameterMaps/{folder}/", ".npy"
         with open(f"{parameter_path}{filename}{parameter_extension}", "rb") as f:
             labels = np.load(f)
 
@@ -53,6 +53,6 @@ class PixelwiseDataset(Dataset):
         # Then repack to original shape.
         labels = np.transpose(labels, axes=(2, 0, 1))
         t1, t2, pd = labels[0] * 1000, labels[1] * 1000, labels[2]
-        labels = np.asarray([t1, t2, pd])
+        labels = np.asarray([t1, t2])  # Exclude pd.
         labels = np.transpose(labels, axes=(1, 2, 0))
         return cls(data, labels, *args, **kwargs)
