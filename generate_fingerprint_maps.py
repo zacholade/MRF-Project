@@ -1,16 +1,15 @@
 # Imports
 from __future__ import annotations
 
-import os
 import multiprocessing
+import os
+from typing import List, Tuple
 
 import matlab
 import matlab.engine
 import numpy as np
-from typing import List, Tuple
 
 from scripts.brain_dict_true import brain_dict_true
-import matplotlib.pyplot as plt
 
 
 def get_all_file_paths() -> List[Tuple[str, str, str, str]]:
