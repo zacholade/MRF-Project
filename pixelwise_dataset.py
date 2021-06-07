@@ -56,15 +56,3 @@ class PixelwiseDataset(Dataset):
         labels = np.asarray([t1, t2, pd])
         labels = np.transpose(labels, axes=(1, 2, 0))
         return cls(data, labels, *args, **kwargs)
-
-
-if __name__ == "__main__":
-    dataset_loader = DataLoader(PixelwiseDataset.from_file_name("subj1_fisp_slc4_4"),
-                                batch_size=1000,
-                                shuffle=False,
-                                pin_memory=True,
-                                collate_fn=PixelwiseDataset.collate_fn)
-
-    i = iter(dataset_loader)
-    data, labels = next(i)
-    data.cuda(), labels.cuda()
