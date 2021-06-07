@@ -54,7 +54,7 @@ def gen_and_save_fingerprint_map(file_tuple):
     eng.addpath("CoverBLIP/CoverBLIP toolbox/data")
 
     off = [0]
-    with open("RFpulses.npy", "rb") as f:
+    with open("Data/RFpulses.npy", "rb") as f:
         rf_pulses = list(np.load(f))[:1000]
 
     fingerprint_map = [[] for i in range(230)]
