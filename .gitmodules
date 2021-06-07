@@ -1,0 +1,3 @@
+[submodule "CoverBLIP"]
+	path = CoverBLIP
+	url = https://github.com/mgolbabaee/CoverBLIP.git
