@@ -18,7 +18,7 @@ def get_all_file_paths() -> List[Tuple[str, str, str, str]]:
     Returns a tuple of:
     (PATH_TO_PARAMETER_MAP, PARAMETER_FILE_NAME , PATH_TO_EXACT_FINGERPRINT_MAP, FINGERPRINT_FILE_NAME)
     """
-    parameter_folders = ["MRF_maps/ParameterMaps/Train/", "MRF_maps/ParameterMaps/Test/"]
+    parameter_folders = ["Data/MRF_maps/ParameterMaps/Train/", "Data/MRF_maps/ParameterMaps/Test/"]
     parameter_files = []
     for parameter_folder in parameter_folders:
         files = os.listdir(parameter_folder)

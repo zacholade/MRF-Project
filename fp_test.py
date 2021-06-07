@@ -6,8 +6,8 @@ import typing
 
 from mrf_map import MRFMap
 
-fp_folder = "MRF_maps/ExactFingerprintMaps/Train/"
-parameter_folder = "MRF_maps/ParameterMaps/Train/"
+fp_folder = "Data/MRF_maps/ExactFingerprintMaps/Train/"
+parameter_folder = "Data/MRF_maps/ParameterMaps/Train/"
 fp_file = "subj1_fisp_slc1_1.npz"
 parameter_file = "subj1_fisp_slc1_1.npy"
 
