@@ -25,14 +25,7 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         self._data_file_names, self._label_file_names = get_all_data_files(data_type)
         self.transform = transform
 
-        # print('before load')
         self._label_files = self._data_files = None
-        # self._label_files = [np.load(i, mmap_mode="r") for i in self._label_file_names]
-        # self._label_files = self.get_label
-        # print('mid load')
-        # self._data_files = [np.load(i, mmap_mode="r") for i in self._data_file_names]
-        # self._data_files = self.get_data
-        # print('after load')
 
     @property
     def num_indexes(self):
@@ -129,3 +122,15 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         data = torch.FloatTensor([item[0] for item in batch])
         labels = torch.FloatTensor([item[1] for item in batch])
         return [data, labels]
+
+
+class ScanwiseDataset(PixelwiseDataset):
+    """1 index = 1 entire scan."""
+    def __getitem__(self, index):
+        data = np.load(self._data_file_names[index])
+        label = np.load(self._label_file_names[index])
+
+        if self.transform:
+            data, label = self.transform((data, label))
+
+        return data, label

@@ -42,6 +42,7 @@ class NoiseTransform:
 
     def __call__(self, sample):
         data, labels = sample
-        noise = np.random.normal(self.mean, self.sd, data.shape[0])
+
+        noise = np.random.normal(self.mean, self.sd, data.shape)
         data = data + noise
         return data, labels

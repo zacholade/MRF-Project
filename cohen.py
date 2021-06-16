@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Callable
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -34,16 +36,57 @@ class CohenMLP(nn.Module):
 
 
 class TrainingAlgorithm:
-    def __init__(self, network, lr):
+    def __init__(self,
+                 model,
+                 optimiser: torch.optim.Optimizer,
+                 loss: Callable,
+                 total_epochs: int,
+                 batch_size: int,
+                 stats: ModelStats,
+                 starting_epoch: int = 0,
+                 limit_iterations: int = None
+    ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.network = network.to(self.device)
-        self.loss = nn.MSELoss()
-        self.optimiser = optim.Adam(self.network.parameters(), lr=lr)
+        self.model = model.to(self.device)
+        self.optimiser = optimiser
+        self.loss = loss
+
+        self.starting_epoch = starting_epoch
+        self.total_epochs = total_epochs
+
+        self.batch_size = batch_size
+        self.limit_iterations = limit_iterations
+
+        self.stats = stats
+
+    def save(self, epoch, path):
+        torch.save({
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimiser_state_dict': self.optimiser.state_dict(),
+            'loss': self.loss,
+
+        }, path)
+
+    @classmethod
+    def load(cls, path):
+        checkpoint = torch.load(path)
+
+        model = CohenMLP()
+        model.load_state_dict(checkpoint['model_state_dict'])
+
+        optimiser = optim.Adam(model.parameters())
+        optimiser.load_state_dict(checkpoint['optimiser_state_dict'])
+
+        epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+
+        return cls(model, optimiser)
 
     def train(self, data, labels):
-        self.network.train()
+        self.model.train()
         data, labels = data.to(self.device), labels.to(self.device)
-        predicted = self.network.forward(data)
+        predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
         self.optimiser.zero_grad()
         loss.backward()
@@ -51,19 +94,70 @@ class TrainingAlgorithm:
         return predicted, loss
 
     def validate(self, data, labels):
-        self.network.eval()
+        self.model.eval()
         data, labels = data.to(self.device), labels.to(self.device)
-        predicted = self.network.forward(data)
+        predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
         plot_model(predicted, labels)
         return predicted, loss
 
     def save_model(self, filename):
-        torch.save(self.network.state_dict(), f"models/{filename}.pth")
+        torch.save(self.model.state_dict(), f"models/{filename}.pth")
 
-    # def loop(self):
-    #     for epoch in range (self.current_epoch + 1, self.total_epochs + 1):
-    #
+    def _should_stop(self, current_iteration: int) -> bool:
+        """
+        Used to work out if the loop should break early based on the limit_iterations value.
+        """
+        return all([self.limit_iterations is not None,
+                    self.limit_iterations > 0,
+                    current_iteration % self.limit_iterations == 0,
+                    current_iteration != 0])
+
+    def loop(self, validate):
+        validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
+        training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
+
+        training_dataset = PixelwiseDataset("Train", transform=training_transforms)
+        validation_dataset = PixelwiseDataset("Test", transform=validation_transforms)
+
+        print(f"There will be approx {min(len(training_dataset) / self.batch_size, self.limit_iterations)} iterations per epoch.")
+        for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
+            train_loader = torch.utils.data.DataLoader(training_dataset,
+                                                       batch_size=self.batch_size,
+                                                       shuffle=True,
+                                                       pin_memory=True,
+                                                       collate_fn=PixelwiseDataset.collate_fn,
+                                                       num_workers=6,
+                                                       worker_init_fn=training_dataset.worker_init_fn,
+                                                       drop_last=True)
+
+            for current_iteration, (data, labels) in enumerate(train_loader):
+                if self._should_stop(current_iteration):
+                    break
+
+                current_iteration += 1
+
+                predicted, loss = self.train(data, labels)
+                print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
+                      f"≈{min(len(training_dataset) / self.batch_size, self.limit_iterations)}")
+                self.stats.update(predicted.cpu(), labels.cpu())
+
+            if not validate:
+                continue
+
+            print(f"Done training. Starting validation for epoch {epoch}.")
+            # Eval
+            validate_loader = torch.utils.data.DataLoader(validation_dataset,
+                                                          batch_size=validation_dataset.num_pixels_per_matrix,
+                                                          shuffle=False,
+                                                          pin_memory=True,
+                                                          collate_fn=PixelwiseDataset.collate_fn,
+                                                          worker_init_fn=validation_dataset.worker_init_fn,
+                                                          num_workers=1)
+            data, labels = next(iter(validate_loader))
+            predicted, loss = self.validate(data, labels)
+
+            print(f"Epoch {epoch} complete")
 
 
 def plot_model(predicted, labels):
@@ -107,56 +201,26 @@ class ModelStats:
         print(f"RMSE: {rmse_loss.item()}, T1 RMSE: {t1_rmse_loss.item()}, T2 RMSE: {t2_rmse_loss.item()}")
 
 
-if __name__ == "__main__":
-    epochs = 100
+def main():
+    total_epochs = 100
     batch_size = 10000
     learning_rate = 0.001
     validate = True
     limit_iterations = 300  # Set to 0 to not limit.
 
     model = CohenMLP()
-    trainer = TrainingAlgorithm(model, learning_rate)
     stats = ModelStats()
+    optimiser = optim.Adam(model.parameters(), lr=learning_rate)
+    loss = nn.MSELoss()
+    trainer = TrainingAlgorithm(model,
+                                optimiser,
+                                loss,
+                                total_epochs,
+                                batch_size,
+                                stats,
+                                limit_iterations=limit_iterations)
+    trainer.loop(validate)
 
-    validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
-    training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
-    training_dataset = PixelwiseDataset("Train", transform=training_transforms)
-    validation_dataset = PixelwiseDataset("Test", transform=validation_transforms)
-
-    print(f"There will be approx {min(len(training_dataset) / batch_size, limit_iterations)} iterations per epoch.")
-    for epoch in range(1, epochs + 1):
-        # Train
-        train_loader = torch.utils.data.DataLoader(training_dataset,
-                                                   batch_size=batch_size,
-                                                   shuffle=True,
-                                                   pin_memory=True,
-                                                   collate_fn=PixelwiseDataset.collate_fn,
-                                                   num_workers=6,
-                                                   worker_init_fn=training_dataset.worker_init_fn,
-                                                   drop_last=True)
-        for iteration_counter, (data, labels) in enumerate(train_loader):
-            if limit_iterations > 0 and iteration_counter % limit_iterations == 0 and iteration_counter != 0:
-                break
-
-            iteration_counter += 1
-            predicted, loss = trainer.train(data, labels)
-            print(f"Epoch: {epoch}, Training iteration: {iteration_counter} / ≈{min(len(training_dataset) / batch_size, limit_iterations)}")
-            stats.update(predicted.cpu(), labels.cpu())
-        if not validate:
-            continue
-
-        print("Done training. Starting validation.")
-        # Eval
-        validate_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                      batch_size=validation_dataset.num_pixels_per_matrix,
-                                                      shuffle=False,
-                                                      pin_memory=True,
-                                                      collate_fn=PixelwiseDataset.collate_fn,
-                                                      worker_init_fn=validation_dataset.worker_init_fn,
-                                                      num_workers=1)
-        data, labels = next(iter(validate_loader))
-        predicted, loss = trainer.validate(data, labels)
-
-        print(f"Epoch {epoch} complete")
-
+if __name__ == "__main__":
+    main()
