@@ -11,6 +11,11 @@ class ExcludeProtonDensity:
 
     def __call__(self, sample):
         data, labels = sample
+        if data.shape == (230, 230, 1000):
+            t1, t2, pd = np.transpose(labels, axes=(2, 0, 1))
+            labels = np.asarray([t1, t2])
+            labels = np.transpose(labels, axes=(1, 2, 0))
+            return data, labels
         return data, labels[:-1]
 
 
@@ -42,7 +47,6 @@ class NoiseTransform:
 
     def __call__(self, sample):
         data, labels = sample
-
         noise = np.random.normal(self.mean, self.sd, data.shape)
         data = data + noise
         return data, labels

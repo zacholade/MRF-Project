@@ -1,7 +1,9 @@
 import os
+from typing import Callable
 
 import numpy as np
 import torch.utils.data
+import torchvision.transforms as transforms
 
 
 def get_all_data_files(folder: str = "Train", *args, **kwargs):
@@ -20,7 +22,8 @@ def get_all_data_files(folder: str = "Train", *args, **kwargs):
 class PixelwiseDataset(torch.utils.data.Dataset):
     def __init__(self,
                  data_type: str = "Train",
-                 transform=None):
+                 transform: Callable = None,
+                 persist_mem: bool = False):
         super().__init__()
         self._data_file_names, self._label_file_names = get_all_data_files(data_type)
         self.transform = transform
@@ -129,8 +132,13 @@ class ScanwiseDataset(PixelwiseDataset):
     def __getitem__(self, index):
         data = np.load(self._data_file_names[index])
         label = np.load(self._label_file_names[index])
-
+        print(data.shape)
+        print(label.shape)
         if self.transform:
             data, label = self.transform((data, label))
-
+        print(data.shape)
+        print(label.shape)
         return data, label
+
+    def __len__(self):
+        return len(self._data_file_names)

@@ -10,7 +10,7 @@ import torch.optim as optim
 import torch.utils.data
 import torchvision.transforms as transforms
 
-from pixelwise_dataset import PixelwiseDataset
+from pixelwise_dataset import PixelwiseDataset, ScanwiseDataset
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
 
 
@@ -118,7 +118,7 @@ class TrainingAlgorithm:
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
         training_dataset = PixelwiseDataset("Train", transform=training_transforms)
-        validation_dataset = PixelwiseDataset("Test", transform=validation_transforms)
+        validation_dataset = ScanwiseDataset("Test", transform=validation_transforms)
 
         print(f"There will be approx {min(len(training_dataset) / self.batch_size, self.limit_iterations)} iterations per epoch.")
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
@@ -148,17 +148,19 @@ class TrainingAlgorithm:
             print(f"Done training. Starting validation for epoch {epoch}.")
             # Eval
             validate_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                          batch_size=validation_dataset.num_pixels_per_matrix,
+                                                          batch_size=1,
                                                           shuffle=False,
                                                           pin_memory=True,
-                                                          collate_fn=PixelwiseDataset.collate_fn,
                                                           worker_init_fn=validation_dataset.worker_init_fn,
                                                           num_workers=1)
             data, labels = next(iter(validate_loader))
+            print(data.shape)
+            print(labels.shape)
             predicted, loss = self.validate(data, labels)
 
             print(f"Epoch {epoch} complete")
-
+            #  MEAN ABSOLUTE PERCENTAGE ERROR!!
+            self.save(epoch, "model")
 
 def plot_model(predicted, labels):
     print("Plotting")
@@ -206,7 +208,7 @@ def main():
     batch_size = 10000
     learning_rate = 0.001
     validate = True
-    limit_iterations = 300  # Set to 0 to not limit.
+    limit_iterations = 12  # Set to 0 to not limit.
 
     model = CohenMLP()
     stats = ModelStats()
