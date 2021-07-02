@@ -10,13 +10,8 @@ class ExcludeProtonDensity:
         ...
 
     def __call__(self, sample):
-        data, labels = sample
-        if data.shape == (230, 230, 1000):
-            t1, t2, pd = np.transpose(labels, axes=(2, 0, 1))
-            labels = np.asarray([t1, t2])
-            labels = np.transpose(labels, axes=(1, 2, 0))
-            return data, labels
-        return data, labels[:-1]
+        data, labels, pos = sample
+        return data, labels[:-1], pos
 
 
 class ScaleLabels:
@@ -33,8 +28,8 @@ class ScaleLabels:
         # t1, t2 = labels[0] * self.scaling_factor, labels[1] * self.scaling_factor
         # labels = np.asarray([t1, t2])
         # labels = np.transpose(labels, axes=(1, 2, 0))
-        data, labels = sample
-        return data, labels * self.scaling_factor
+        data, labels, pos = sample
+        return data, (labels[0] * self.scaling_factor, labels[1] * self.scaling_factor), pos
 
 
 class NoiseTransform:
@@ -46,7 +41,7 @@ class NoiseTransform:
         self.sd = sd
 
     def __call__(self, sample):
-        data, labels = sample
+        data, labels, pos = sample
         noise = np.random.normal(self.mean, self.sd, data.shape)
         data = data + noise
-        return data, labels
+        return data, labels, pos

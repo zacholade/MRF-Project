@@ -10,8 +10,9 @@ import torch.optim as optim
 import torch.utils.data
 import torchvision.transforms as transforms
 
-from pixelwise_dataset import PixelwiseDataset, ScanwiseDataset
+from datasets import PixelwiseDataset, ScanwiseDataset
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
+from util import get_all_data_files, load_all_data_files
 
 
 class CohenMLP(nn.Module):
@@ -44,6 +45,7 @@ class TrainingAlgorithm:
                  batch_size: int,
                  stats: ModelStats,
                  starting_epoch: int = 0,
+                 limit_number_data: int = -1,
                  limit_iterations: int = None
     ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -55,6 +57,8 @@ class TrainingAlgorithm:
         self.total_epochs = total_epochs
 
         self.batch_size = batch_size
+
+        self.limit_number_data = limit_number_data
         self.limit_iterations = limit_iterations
 
         self.stats = stats
@@ -83,7 +87,7 @@ class TrainingAlgorithm:
 
         return cls(model, optimiser)
 
-    def train(self, data, labels):
+    def train(self, data, labels, pos):
         self.model.train()
         data, labels = data.to(self.device), labels.to(self.device)
         predicted = self.model.forward(data)
@@ -93,12 +97,14 @@ class TrainingAlgorithm:
         self.optimiser.step()
         return predicted, loss
 
-    def validate(self, data, labels):
+    def validate(self, data, labels, pos):
         self.model.eval()
         data, labels = data.to(self.device), labels.to(self.device)
         predicted = self.model.forward(data)
+        print(labels.shape)
+        print(predicted.shape)
         loss = self.loss(predicted, labels)
-        plot_model(predicted, labels)
+        plot_model(predicted, labels, pos)
         return predicted, loss
 
     def save_model(self, filename):
@@ -117,8 +123,10 @@ class TrainingAlgorithm:
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
-        training_dataset = PixelwiseDataset("Train", transform=training_transforms)
-        validation_dataset = ScanwiseDataset("Test", transform=validation_transforms)
+        train_data, train_labels = load_all_data_files("Train", file_limit=self.limit_number_data)
+        valid_data, valid_labels = load_all_data_files("Test", file_limit=self.limit_number_data)
+        training_dataset = PixelwiseDataset(train_data, train_labels, transform=training_transforms)
+        validation_dataset = ScanwiseDataset(valid_data, valid_labels, transform=validation_transforms)
 
         print(f"There will be approx {min(len(training_dataset) / self.batch_size, self.limit_iterations)} iterations per epoch.")
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
@@ -127,17 +135,16 @@ class TrainingAlgorithm:
                                                        shuffle=True,
                                                        pin_memory=True,
                                                        collate_fn=PixelwiseDataset.collate_fn,
-                                                       num_workers=6,
-                                                       worker_init_fn=training_dataset.worker_init_fn,
+                                                       num_workers=1,
                                                        drop_last=True)
 
-            for current_iteration, (data, labels) in enumerate(train_loader):
+            for current_iteration, (data, labels, pos) in enumerate(train_loader):
                 if self._should_stop(current_iteration):
                     break
 
                 current_iteration += 1
 
-                predicted, loss = self.train(data, labels)
+                predicted, loss = self.train(data, labels, pos)
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                       f"≈{min(len(training_dataset) / self.batch_size, self.limit_iterations)}")
                 self.stats.update(predicted.cpu(), labels.cpu())
@@ -151,35 +158,43 @@ class TrainingAlgorithm:
                                                           batch_size=1,
                                                           shuffle=False,
                                                           pin_memory=True,
-                                                          worker_init_fn=validation_dataset.worker_init_fn,
-                                                          num_workers=1)
-            data, labels = next(iter(validate_loader))
-            print(data.shape)
-            print(labels.shape)
-            predicted, loss = self.validate(data, labels)
+                                                          num_workers=1,
+                                                          collate_fn=ScanwiseDataset.collate_fn)
+            data, labels, pos = next(iter(validate_loader))
+            predicted, loss = self.validate(data, labels, pos)
 
             print(f"Epoch {epoch} complete")
             #  MEAN ABSOLUTE PERCENTAGE ERROR!!
             self.save(epoch, "model")
 
-def plot_model(predicted, labels):
-    print("Plotting")
-    predicted = predicted.to("cpu").detach().numpy()
-    predicted_t1, predicted_t2 = np.transpose(predicted).reshape(2, 230, 230)
-    actual_t1, actual_t2 = np.transpose(labels.cpu().numpy()).reshape(2, 230, 230)
 
-    plt.matshow(predicted_t1, norm=plt.Normalize())
+def plot_model(predicted, labels, pos):
+    print("Plotting")
+    predicted_t1, predicted_t2 = predicted.cpu().detach().numpy().transpose()
+    actual_t1, actual_t2 = labels.cpu().numpy().transpose()
+
+    x = (pos // 230).cpu().numpy().astype(int)
+    y = (pos % 230).cpu().numpy().astype(int)
+
+    predicted_t1_map, predicted_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
+    actual_t1_map, actual_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
+    predicted_t1_map[x, y] = predicted_t1
+    predicted_t2_map[x, y] = predicted_t2
+    actual_t1_map[x, y] = actual_t1
+    actual_t2_map[x, y] = actual_t2
+
+    plt.matshow(predicted_t1_map, norm=plt.Normalize())
     plt.title("Predicted T1")
-    plt.matshow(actual_t1, norm=plt.Normalize())
+    plt.matshow(actual_t1_map, norm=plt.Normalize())
     plt.title("Actual T1")
-    plt.matshow(np.abs(actual_t1 - predicted_t1), norm=plt.Normalize())
+    plt.matshow(np.abs(actual_t1_map - predicted_t1_map), norm=plt.Normalize())
     plt.title("abs(predicted - actual) T1")
 
-    plt.matshow(predicted_t2, norm=plt.Normalize())
+    plt.matshow(predicted_t2_map, norm=plt.Normalize())
     plt.title("Predicted T2")
-    plt.matshow(actual_t2, norm=plt.Normalize())
+    plt.matshow(actual_t2_map, norm=plt.Normalize())
     plt.title("Actual T2")
-    plt.matshow(np.abs(actual_t2 - predicted_t2), norm=plt.Normalize())
+    plt.matshow(np.abs(actual_t2_map - predicted_t2_map), norm=plt.Normalize())
     plt.title("abs(predicted - actual) T2")
 
     plt.show()
@@ -205,10 +220,17 @@ class ModelStats:
 
 def main():
     total_epochs = 100
-    batch_size = 10000
+    batch_size = 3000
     learning_rate = 0.001
     validate = True
-    limit_iterations = 12  # Set to 0 to not limit.
+
+    # For debug only.
+    limit_iterations = 500  # Set to 0 to not limit.
+    limit_number_data: int = 15
+
+    if limit_number_data > -1 or limit_iterations > 0:
+        for _ in range(5):
+            print("WARNING!!!!!! NOT USING FULL DATASET OR LIMITING ITERATIONS.")
 
     model = CohenMLP()
     stats = ModelStats()
@@ -220,6 +242,7 @@ def main():
                                 total_epochs,
                                 batch_size,
                                 stats,
+                                limit_number_data=limit_number_data,
                                 limit_iterations=limit_iterations)
     trainer.loop(validate)
 
