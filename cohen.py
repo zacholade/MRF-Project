@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Callable
-
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -15,6 +13,7 @@ from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
 from util import load_all_data_files
 
 import git
+import os
 
 
 class CohenMLP(nn.Module):
@@ -42,7 +41,8 @@ class TrainingAlgorithm:
     def __init__(self,
                  model,
                  optimiser: torch.optim.Optimizer,
-                 loss: Callable,
+                 initial_lr: float,
+                 loss,
                  total_epochs: int,
                  batch_size: int,
                  stats: ModelStats,
@@ -53,6 +53,7 @@ class TrainingAlgorithm:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = model.to(self.device)
         self.optimiser = optimiser
+        self.initial_lr = initial_lr
         self.loss = loss
 
         self.starting_epoch = starting_epoch
@@ -65,14 +66,32 @@ class TrainingAlgorithm:
 
         self.stats = stats
 
-    def save(self, epoch, path):
+    def save(self, epoch):
+        repo = git.Repo(search_parent_directories=True)
+        sha = repo.head.object.hexsha
+        filename = f"cohen_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
+                   f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}"
+
+        path = f"models/cohen_git-{sha}"
+        if not os.path.exists("models"):
+            os.mkdir("models")
+
+        num = ""
+        while os.path.exists(f"{path}_{num}"):
+            if num == "":
+                num = 1
+            num += 1
+
+        if num != "":
+            path = f"{path}_{num}"
+
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
             'optimiser_state_dict': self.optimiser.state_dict(),
             'loss': self.loss,
-
-        }, path)
+            'batch_size': self.batch_size
+        }, f"{path}/{filename}")
 
     @classmethod
     def load(cls, path):
@@ -86,8 +105,12 @@ class TrainingAlgorithm:
 
         epoch = checkpoint['epoch']
         loss = checkpoint['loss']
+        batch_size = checkpoint['batch_size']
+        stats = ModelStats()
 
-        return cls(model, optimiser)
+        number_epochs_to_do = epoch + 1
+        return cls(model, optimiser, loss, number_epochs_to_do, batch_size,
+                   starting_epoch=epoch, stats=stats)
 
     def train(self, data, labels, pos):
         self.model.train()
@@ -103,18 +126,9 @@ class TrainingAlgorithm:
         self.model.eval()
         data, labels = data.to(self.device), labels.to(self.device)
         predicted = self.model.forward(data)
-        print(labels.shape)
-        print(predicted.shape)
         loss = self.loss(predicted, labels)
         plot_model(predicted, labels, pos)
         return predicted, loss
-
-    def save_model(self, filename):
-        repo = git.Repo(search_parent_directories=True)
-        sha = repo.head.object.hexsha
-
-
-        torch.save(self.model.state_dict(), f"models/{filename}.pth")
 
     def _should_stop(self, current_iteration: int) -> bool:
         """
@@ -171,7 +185,7 @@ class TrainingAlgorithm:
 
             print(f"Epoch {epoch} complete")
             #  MEAN ABSOLUTE PERCENTAGE ERROR!!
-            self.save(epoch, "model")
+            self.save(epoch)
 
 
 def plot_model(predicted, labels, pos):
@@ -249,6 +263,7 @@ def main():
     loss = nn.MSELoss()
     trainer = TrainingAlgorithm(model,
                                 optimiser,
+                                learning_rate,
                                 loss,
                                 total_epochs,
                                 batch_size,
