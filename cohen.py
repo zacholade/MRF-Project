@@ -108,6 +108,10 @@ class TrainingAlgorithm:
         return predicted, loss
 
     def save_model(self, filename):
+        import git
+        repo = git.Repo(search_parent_directories=True)
+        sha = repo.head.object.hexsha
+
         torch.save(self.model.state_dict(), f"models/{filename}.pth")
 
     def _should_stop(self, current_iteration: int) -> bool:
