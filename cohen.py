@@ -12,7 +12,9 @@ import torchvision.transforms as transforms
 
 from datasets import PixelwiseDataset, ScanwiseDataset
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
-from util import get_all_data_files, load_all_data_files
+from util import load_all_data_files
+
+import git
 
 
 class CohenMLP(nn.Module):
@@ -108,9 +110,9 @@ class TrainingAlgorithm:
         return predicted, loss
 
     def save_model(self, filename):
-        import git
         repo = git.Repo(search_parent_directories=True)
         sha = repo.head.object.hexsha
+
 
         torch.save(self.model.state_dict(), f"models/{filename}.pth")
 
@@ -235,6 +237,11 @@ def main():
     if limit_number_data > -1 or limit_iterations > 0:
         for _ in range(5):
             print("WARNING!!!!!! NOT USING FULL DATASET OR LIMITING ITERATIONS.")
+
+    repo = git.Repo(search_parent_directories=True)
+    if repo.is_dirty(submodules=False):
+        for _ in range(5):
+            print("GIT IS DIRTY.")
 
     model = CohenMLP()
     stats = ModelStats()
