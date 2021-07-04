@@ -79,7 +79,7 @@ class TrainingAlgorithm:
         num = ""
         while os.path.exists(f"{path}_{num}"):
             if num == "":
-                num = 1
+                num = 0
             num += 1
 
         if num != "":
