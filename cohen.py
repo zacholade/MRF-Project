@@ -71,19 +71,19 @@ class TrainingAlgorithm:
         sha = repo.head.object.hexsha
         filename = f"cohen_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
                    f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}"
-
         path = f"models/cohen_git-{sha}"
+
         if not os.path.exists("models"):
             os.mkdir("models")
 
-        num = ""
-        while os.path.exists(f"{path}_{num}"):
-            if num == "":
-                num = 0
-            num += 1
-
-        if num != "":
+        # This block of code makes sure the folder saving to is new and not been saved to before.
+        if os.path.exists(path):
+            num = 1
+            while os.path.exists(f"{path}_{num}"):
+                num += 1
             path = f"{path}_{num}"
+
+        os.mkdir(path)
 
         torch.save({
             'epoch': epoch,
