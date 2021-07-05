@@ -36,9 +36,6 @@ class CohenMLP(nn.Module):
         x1 = torch.nn.Sigmoid(x1)
         return x1
 
-    def get_checkpoint(self):
-        return {"model_state_dict": self.state_dict()}
-
 
 class TrainingAlgorithm:
     def __init__(self,
@@ -79,7 +76,11 @@ class TrainingAlgorithm:
 
         repo = git.Repo(search_parent_directories=True)
         sha = repo.head.object.hexsha
-        path = f"models/cohen_git-{sha}"
+
+        from datetime import datetime
+        date = datetime.today().strftime('%Y-%m-%d_%H-%M')
+
+        path = f"models/cohen_{date}_git-{sha}"
 
         # This block of code makes sure the folder saving to is new and not been saved to before.
         if os.path.exists(path):
