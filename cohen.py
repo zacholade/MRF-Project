@@ -33,6 +33,7 @@ class CohenMLP(nn.Module):
         x1 = torch.tanh(x1)
         x1 = self.fc2(x1)
         x1 = self.output(x1)
+        x1 = torch.nn.Sigmoid(x1)
         return x1
 
     def get_checkpoint(self):

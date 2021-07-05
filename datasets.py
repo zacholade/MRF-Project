@@ -67,4 +67,3 @@ class ScanwiseDataset(PixelwiseDataset):
         labels = torch.FloatTensor(batch[0][1])
         pos = torch.FloatTensor(batch[0][2])
         return [data, labels, pos]
-
