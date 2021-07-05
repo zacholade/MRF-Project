@@ -222,19 +222,35 @@ def plot_model(predicted, labels, pos):
     actual_t1_map[x, y] = actual_t1
     actual_t2_map[x, y] = actual_t2
 
-    plt.matshow(predicted_t1_map, norm=plt.Normalize())
+    plt.matshow(predicted_t1_map)
     plt.title("Predicted T1")
-    plt.matshow(actual_t1_map, norm=plt.Normalize())
-    plt.title("Actual T1")
-    plt.matshow(np.abs(actual_t1_map - predicted_t1_map), norm=plt.Normalize())
-    plt.title("abs(predicted - actual) T1")
+    plt.clim(0, 3000)
+    plt.colorbar(shrink=0.8)
 
-    plt.matshow(predicted_t2_map, norm=plt.Normalize())
+    plt.matshow(actual_t1_map)
+    plt.title("Actual T1")
+    plt.clim(0, 3000)
+    plt.colorbar(shrink=0.8)
+
+    plt.matshow(np.abs(actual_t1_map - predicted_t1_map))
+    plt.title("abs(predicted - actual) T1")
+    plt.clim(0, 3000)
+    plt.colorbar(shrink=0.8)
+
+    plt.matshow(predicted_t2_map)
     plt.title("Predicted T2")
-    plt.matshow(actual_t2_map, norm=plt.Normalize())
+    plt.clim(0, 300)
+    plt.colorbar(shrink=0.8)
+
+    plt.matshow(actual_t2_map)
     plt.title("Actual T2")
-    plt.matshow(np.abs(actual_t2_map - predicted_t2_map), norm=plt.Normalize())
+    plt.clim(0, 300)
+    plt.colorbar(shrink=0.8)
+
+    plt.matshow(np.abs(actual_t2_map - predicted_t2_map))
     plt.title("abs(predicted - actual) T2")
+    plt.clim(0, 300)
+    plt.colorbar(shrink=0.8)
 
     plt.show()
 
