@@ -22,18 +22,21 @@ class CohenMLP(nn.Module):
     def __init__(self):
         super().__init__()
         self.input = nn.Linear(1000, 300)
+        self.tanh1 = nn.Tanh()
         self.fc1 = nn.Linear(300, 300)
+        self.tanh2 = nn.Tanh()
         self.fc2 = nn.Linear(300, 300)
+        self.sigmoid = nn.Sigmoid()
         self.output = nn.Linear(300, 2)
 
     def forward(self, fp):
         x1 = self.input(fp)
-        x1 = torch.tanh(x1)
+        x1 = self.tanh1(x1)
         x1 = self.fc1(x1)
-        x1 = torch.tanh(x1)
+        x1 = self.tanh2(x1)
         x1 = self.fc2(x1)
+        x1 = self.sigmoid(x1)
         x1 = self.output(x1)
-        x1 = torch.nn.Sigmoid(x1)
         return x1
 
 
@@ -176,10 +179,9 @@ class TrainingAlgorithm:
                 current_iteration += 1
 
                 predicted, loss = self.train(data, labels, pos)
-                if current_iteration % 300 == 0:
-                    print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                          f"≈{self.limit_iterations if self.debug else len(training_dataset) / self.batch_size}")
-                    self.stats.update(predicted.cpu(), labels.cpu())
+                print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
+                      f"≈{self.limit_iterations if self.debug else len(training_dataset) / self.batch_size}")
+                self.stats.update(predicted.cpu(), labels.cpu())
 
             if not validate:
                 continue
