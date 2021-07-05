@@ -176,9 +176,10 @@ class TrainingAlgorithm:
                 current_iteration += 1
 
                 predicted, loss = self.train(data, labels, pos)
-                print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                      f"≈{self.limit_iterations if self.debug else len(training_dataset) / self.batch_size}")
-                self.stats.update(predicted.cpu(), labels.cpu())
+                if current_iteration % 300 == 0:
+                    print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
+                          f"≈{self.limit_iterations if self.debug else len(training_dataset) / self.batch_size}")
+                    self.stats.update(predicted.cpu(), labels.cpu())
 
             if not validate:
                 continue
