@@ -131,7 +131,8 @@ class TrainingAlgorithm:
         data, labels = data.to(self.device), labels.to(self.device)
         predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
-        plot_model(predicted, labels, pos)
+        if self.debug:
+            plot_model(predicted, labels, pos)
         return predicted, loss
 
     def _should_stop(self, current_iteration: int) -> bool:
