@@ -70,15 +70,15 @@ class TrainingAlgorithm:
 
         self.stats = stats
 
-    def save(self, epoch):
-        repo = git.Repo(search_parent_directories=True)
-        sha = repo.head.object.hexsha
-        filename = f"cohen_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
-                   f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}"
-        path = f"models/cohen_git-{sha}"
+        self.model_path = self._get_model_path()
 
+    def _get_model_path(self):
         if not os.path.exists("models"):
             os.mkdir("models")
+
+        repo = git.Repo(search_parent_directories=True)
+        sha = repo.head.object.hexsha
+        path = f"models/cohen_git-{sha}"
 
         # This block of code makes sure the folder saving to is new and not been saved to before.
         if os.path.exists(path):
@@ -86,8 +86,14 @@ class TrainingAlgorithm:
             while os.path.exists(f"{path}_{num}"):
                 num += 1
             path = f"{path}_{num}"
+        return path
 
-        os.mkdir(path)
+    def save(self, epoch):
+        filename = f"cohen_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
+                   f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}"
+
+        if not os.path.exists(self.model_path):
+            os.mkdir(self.model_path)
 
         torch.save({
             'epoch': epoch,
@@ -95,7 +101,7 @@ class TrainingAlgorithm:
             'optimiser_state_dict': self.optimiser.state_dict(),
             'loss': self.loss,
             'batch_size': self.batch_size
-        }, f"{path}/{filename}")
+        }, f"{self.model_path}/{filename}")
 
     @classmethod
     def load(cls, path):
