@@ -8,12 +8,14 @@ import torch.optim as optim
 import torch.utils.data
 import torchvision.transforms as transforms
 
+from config_parser import Configuration
 from datasets import PixelwiseDataset, ScanwiseDataset
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
 from util import load_all_data_files
 
 import git
 import os
+import argparse
 
 
 class CohenMLP(nn.Module):
@@ -47,7 +49,7 @@ class TrainingAlgorithm:
                  batch_size: int,
                  stats: ModelStats,
                  starting_epoch: int = 0,
-                 limit_number_data: int = -1,
+                 limit_number_files: int = -1,
                  limit_iterations: int = None
     ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -61,7 +63,7 @@ class TrainingAlgorithm:
 
         self.batch_size = batch_size
 
-        self.limit_number_data = limit_number_data
+        self.limit_number_files = limit_number_files
         self.limit_iterations = limit_iterations
 
         self.stats = stats
@@ -143,8 +145,8 @@ class TrainingAlgorithm:
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
-        train_data, train_labels = load_all_data_files("Train", file_limit=self.limit_number_data)
-        valid_data, valid_labels = load_all_data_files("Test", file_limit=self.limit_number_data)
+        train_data, train_labels = load_all_data_files("Train", file_limit=self.limit_number_files)
+        valid_data, valid_labels = load_all_data_files("Test", file_limit=self.limit_number_files)
         training_dataset = PixelwiseDataset(train_data, train_labels, transform=training_transforms)
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, transform=validation_transforms)
 
@@ -239,23 +241,24 @@ class ModelStats:
 
 
 def main():
-    total_epochs = 100
-    batch_size = 3000
-    learning_rate = 0.001
-    validate = True
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-debug', action='store_true', default=False)
+    args = parser.parse_args()
+    config = Configuration("config.ini", args.debug)
+
+    total_epochs = config.total_epochs
+    batch_size = config.batch_size
+    learning_rate = config.learning_rate
+    validate = config.validate
 
     # For debug only.
-    limit_iterations = 500  # Set to 0 to not limit.
-    limit_number_data: int = 15
-
-    if limit_number_data > -1 or limit_iterations > 0:
-        for _ in range(5):
-            print("WARNING!!!!!! NOT USING FULL DATASET OR LIMITING ITERATIONS.")
+    limit_iterations = config.limit_iterations
+    limit_number_files = config.limit_number_files
 
     repo = git.Repo(search_parent_directories=True)
     if repo.is_dirty(submodules=False):
         for _ in range(5):
-            print("GIT IS DIRTY.")
+            print("GIT HEAD IS NOT CLEAN.")
 
     model = CohenMLP()
     stats = ModelStats()
@@ -268,11 +271,10 @@ def main():
                                 total_epochs,
                                 batch_size,
                                 stats,
-                                limit_number_data=limit_number_data,
+                                limit_number_files=limit_number_files,
                                 limit_iterations=limit_iterations)
     trainer.loop(validate)
 
 
 if __name__ == "__main__":
-    print("Hello. Starting. :)")
     main()
