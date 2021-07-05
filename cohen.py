@@ -285,9 +285,10 @@ def main():
     print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
 
     repo = git.Repo(search_parent_directories=True)
-    if repo.is_dirty(submodules=False):
-        for _ in range(5):
-            print("GIT HEAD IS NOT CLEAN.")
+    if not config.debug and repo.is_dirty(submodules=False):
+        print("Git head is not clean. Exiting...")
+        import sys
+        sys.exit(0)
 
     model = CohenMLP()
     stats = ModelStats()
