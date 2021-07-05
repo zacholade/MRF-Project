@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import argparse
+import os
+
+import git
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -12,10 +16,6 @@ from config_parser import Configuration
 from datasets import PixelwiseDataset, ScanwiseDataset
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
 from util import load_all_data_files
-
-import git
-import os
-import argparse
 
 
 class CohenMLP(nn.Module):
