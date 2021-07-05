@@ -244,6 +244,7 @@ def main():
     args = parser.parse_args()
     config = Configuration("config.ini", args.debug)
 
+    print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
     total_epochs = config.total_epochs
     batch_size = config.batch_size
     learning_rate = config.learning_rate
