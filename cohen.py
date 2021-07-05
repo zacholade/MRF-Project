@@ -61,10 +61,8 @@ class TrainingAlgorithm:
         self.optimiser = optimiser
         self.initial_lr = initial_lr
         self.loss = loss
-
         self.starting_epoch = starting_epoch
         self.total_epochs = total_epochs
-
         self.batch_size = batch_size
 
         self.num_training_dataloader_workers = num_training_dataloader_workers
@@ -76,11 +74,14 @@ class TrainingAlgorithm:
 
         self.stats = stats
 
-        self.model_path = self._get_model_path()
+        self.directory = self._get_directory()
 
-    def _get_model_path(self):
-        if not os.path.exists("models"):
-            os.mkdir("models")
+    def _get_directory(self):
+        if not os.path.exists("Exports"):
+            os.mkdir("Exports")
+
+        if not os.path.exists("Exports"):
+            os.mkdir("Exports")
 
         repo = git.Repo(search_parent_directories=True)
         sha = repo.head.object.hexsha
@@ -88,7 +89,7 @@ class TrainingAlgorithm:
         from datetime import datetime
         date = datetime.today().strftime('%Y-%m-%d_%H-%M')
 
-        path = f"models/cohen_{date}_git-{sha}"
+        path = f"Exports/{self.model.__class__.__name__}_{date}_GIT-{sha}"
 
         # This block of code makes sure the folder saving to is new and not been saved to before.
         if os.path.exists(path):
@@ -102,8 +103,8 @@ class TrainingAlgorithm:
         filename = f"cohen_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
                    f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}"
 
-        if not os.path.exists(self.model_path):
-            os.mkdir(self.model_path)
+        if not os.path.exists(self.directory):
+            os.mkdir(self.directory)
 
         torch.save({
             'epoch': epoch,
@@ -111,7 +112,7 @@ class TrainingAlgorithm:
             'optimiser_state_dict': self.optimiser.state_dict(),
             'loss': self.loss,
             'batch_size': self.batch_size
-        }, f"{self.model_path}/{filename}")
+        }, f"{self.directory}/Exports/{filename}")
 
     @classmethod
     def load(cls, path):
@@ -151,14 +152,6 @@ class TrainingAlgorithm:
             plot_model(predicted, labels, pos)
         return predicted, loss
 
-    def _should_stop(self, current_iteration: int) -> bool:
-        """
-        Used to work out if the loop should break early based on the limit_iterations value.
-        """
-        return all([self.limit_iterations > 0,
-                    current_iteration % self.limit_iterations == 0,
-                    current_iteration != 0])
-
     def loop(self, validate):
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
@@ -178,8 +171,10 @@ class TrainingAlgorithm:
                                                        drop_last=True)
 
             for current_iteration, (data, labels, pos) in enumerate(train_loader):
-                if self._should_stop(current_iteration):
-                    break
+                if all([self.debug, self.limit_iterations > 0,
+                        current_iteration % self.limit_iterations == 0,
+                        current_iteration != 0]):
+                    break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
 
@@ -207,7 +202,13 @@ class TrainingAlgorithm:
             self.save(epoch)
 
 
-def plot_model(predicted, labels, pos):
+def plot_model(predicted, labels, pos, save_dir: str = None):
+    """
+    :param predicted: The predicted t1 and t2 labels.
+    :param labels: The ground-truth t1 and t2 labels.
+    :param pos: The index position matrix for each t1 and t2 value.
+    :param save_dir: Optional argument. Saves the plots to that directory if not None.
+    """
     print("Plotting")
     predicted_t1, predicted_t2 = predicted.cpu().detach().numpy().transpose()
     actual_t1, actual_t2 = labels.cpu().numpy().transpose()
@@ -225,33 +226,34 @@ def plot_model(predicted, labels, pos):
     plt.matshow(predicted_t1_map)
     plt.title("Predicted T1")
     plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8)
+    plt.colorbar(shrink=0.8, label='milliseconds')
 
     plt.matshow(actual_t1_map)
     plt.title("Actual T1")
     plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8)
+    plt.colorbar(shrink=0.8, label='milliseconds')
 
     plt.matshow(np.abs(actual_t1_map - predicted_t1_map))
     plt.title("abs(predicted - actual) T1")
     plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8)
+    plt.colorbar(shrink=0.8, label='milliseconds')
 
     plt.matshow(predicted_t2_map)
     plt.title("Predicted T2")
     plt.clim(0, 300)
-    plt.colorbar(shrink=0.8)
+    plt.colorbar(shrink=0.8, label='milliseconds')
 
     plt.matshow(actual_t2_map)
     plt.title("Actual T2")
     plt.clim(0, 300)
-    plt.colorbar(shrink=0.8)
+    plt.colorbar(shrink=0.8, label='milliseconds')
 
     plt.matshow(np.abs(actual_t2_map - predicted_t2_map))
     plt.title("abs(predicted - actual) T2")
     plt.clim(0, 300)
-    plt.colorbar(shrink=0.8)
+    plt.colorbar(shrink=0.8, label='milliseconds')
 
+    plt.savefig('bop.png')
     plt.show()
 
 
