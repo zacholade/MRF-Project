@@ -49,6 +49,7 @@ class TrainingAlgorithm:
                  batch_size: int,
                  stats: ModelStats,
                  starting_epoch: int = 0,
+                 debug: bool = False,
                  limit_number_files: int = -1,
                  limit_iterations: int = -1
     ):
@@ -63,6 +64,7 @@ class TrainingAlgorithm:
 
         self.batch_size = batch_size
 
+        self.debug = debug
         self.limit_number_files = limit_number_files
         self.limit_iterations = limit_iterations
 
@@ -166,7 +168,7 @@ class TrainingAlgorithm:
 
                 predicted, loss = self.train(data, labels, pos)
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                      f"≈{min(len(training_dataset) / self.batch_size, self.limit_iterations)}")
+                      f"≈{self.limit_iterations if self.debug else len(training_dataset) / self.batch_size}")
                 self.stats.update(predicted.cpu(), labels.cpu())
 
             if not validate:
@@ -270,6 +272,7 @@ def main():
                                 total_epochs,
                                 batch_size,
                                 stats,
+                                debug=args.debug,
                                 limit_number_files=limit_number_files,
                                 limit_iterations=limit_iterations)
     trainer.loop(validate)
