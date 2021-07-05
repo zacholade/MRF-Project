@@ -1,6 +1,7 @@
 # Project folders/files
 CoverBLIP/
 Data/
+Exports/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
