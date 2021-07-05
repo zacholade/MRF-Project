@@ -80,9 +80,6 @@ class TrainingAlgorithm:
         if not os.path.exists("Exports"):
             os.mkdir("Exports")
 
-        if not os.path.exists("Exports"):
-            os.mkdir("Exports")
-
         repo = git.Repo(search_parent_directories=True)
         sha = repo.head.object.hexsha
 
