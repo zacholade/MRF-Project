@@ -50,6 +50,8 @@ class TrainingAlgorithm:
                  batch_size: int,
                  stats: ModelStats,
                  starting_epoch: int = 0,
+                 num_training_dataloader_workers: int = 1,
+                 num_testing_dataloader_workers: int = 1,
                  debug: bool = False,
                  limit_number_files: int = -1,
                  limit_iterations: int = -1
@@ -64,6 +66,9 @@ class TrainingAlgorithm:
         self.total_epochs = total_epochs
 
         self.batch_size = batch_size
+
+        self.num_training_dataloader_workers = num_training_dataloader_workers
+        self.num_testing_dataloader_workers = num_testing_dataloader_workers
 
         self.debug = debug
         self.limit_number_files = limit_number_files
@@ -169,7 +174,7 @@ class TrainingAlgorithm:
                                                        shuffle=True,
                                                        pin_memory=True,
                                                        collate_fn=PixelwiseDataset.collate_fn,
-                                                       num_workers=3,
+                                                       num_workers=self.num_training_dataloader_workers,
                                                        drop_last=True)
 
             for current_iteration, (data, labels, pos) in enumerate(train_loader):
@@ -192,7 +197,7 @@ class TrainingAlgorithm:
                                                           batch_size=1,
                                                           shuffle=False,
                                                           pin_memory=True,
-                                                          num_workers=1,
+                                                          num_workers=self.num_testing_dataloader_workers,
                                                           collate_fn=ScanwiseDataset.collate_fn)
             data, labels, pos = next(iter(validate_loader))
             predicted, loss = self.validate(data, labels, pos)
@@ -258,15 +263,10 @@ def main():
     args = parser.parse_args()
     config = Configuration("config.ini", args.debug)
 
-    print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
-    total_epochs = config.total_epochs
-    batch_size = config.batch_size
-    learning_rate = config.learning_rate
-    validate = config.validate
+    num_training_dataloader_workers = config.num_training_dataloader_workers if not config.debug else 1
+    num_testing_dataloader_workers = config.num_testing_dataloader_workers if not config.debug else 1
 
-    # For debug only.
-    limit_iterations = config.limit_iterations
-    limit_number_files = config.limit_number_files
+    print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
 
     repo = git.Repo(search_parent_directories=True)
     if repo.is_dirty(submodules=False):
@@ -275,19 +275,21 @@ def main():
 
     model = CohenMLP()
     stats = ModelStats()
-    optimiser = optim.Adam(model.parameters(), lr=learning_rate)
+    optimiser = optim.Adam(model.parameters(), lr=config.learning_rate)
     loss = nn.MSELoss()
     trainer = TrainingAlgorithm(model,
                                 optimiser,
-                                learning_rate,
+                                config.learning_rate,
                                 loss,
-                                total_epochs,
-                                batch_size,
+                                config.total_epochs,
+                                config.batch_size,
                                 stats,
+                                num_training_dataloader_workers=num_training_dataloader_workers,
+                                num_testing_dataloader_workers=num_testing_dataloader_workers,
                                 debug=args.debug,
-                                limit_number_files=limit_number_files,
-                                limit_iterations=limit_iterations)
-    trainer.loop(validate)
+                                limit_number_files=config.limit_number_files,
+                                limit_iterations=config.limit_iterations)
+    trainer.loop(config.validate)
 
 
 if __name__ == "__main__":
