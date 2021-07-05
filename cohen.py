@@ -50,7 +50,7 @@ class TrainingAlgorithm:
                  stats: ModelStats,
                  starting_epoch: int = 0,
                  limit_number_files: int = -1,
-                 limit_iterations: int = None
+                 limit_iterations: int = -1
     ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = model.to(self.device)
@@ -136,8 +136,7 @@ class TrainingAlgorithm:
         """
         Used to work out if the loop should break early based on the limit_iterations value.
         """
-        return all([self.limit_iterations is not None,
-                    self.limit_iterations > 0,
+        return all([self.limit_iterations > 0,
                     current_iteration % self.limit_iterations == 0,
                     current_iteration != 0])
 

@@ -32,11 +32,11 @@ class Configuration:
     @property
     def limit_iterations(self) -> int:
         if not self.debug:
-            return 0
+            return -1
         return self._config.getint("Debug", "limit_iterations")
 
     @property
     def limit_number_files(self) -> int:
         if not self.debug:
-            return 0
+            return -1
         return self._config.getint("Debug", "limit_number_files")
