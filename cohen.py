@@ -149,14 +149,13 @@ class TrainingAlgorithm:
         training_dataset = PixelwiseDataset(train_data, train_labels, transform=training_transforms)
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, transform=validation_transforms)
 
-        print(f"There will be approx {min(len(training_dataset) / self.batch_size, self.limit_iterations)} iterations per epoch.")
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
             train_loader = torch.utils.data.DataLoader(training_dataset,
                                                        batch_size=self.batch_size,
                                                        shuffle=True,
                                                        pin_memory=True,
                                                        collate_fn=PixelwiseDataset.collate_fn,
-                                                       num_workers=1,
+                                                       num_workers=3,
                                                        drop_last=True)
 
             for current_iteration, (data, labels, pos) in enumerate(train_loader):
