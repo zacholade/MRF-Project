@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from collections import defaultdict
 
 import git
 import matplotlib.pyplot as plt
@@ -48,7 +49,6 @@ class TrainingAlgorithm:
                  loss,
                  total_epochs: int,
                  batch_size: int,
-                 stats: ModelStats,
                  starting_epoch: int = 0,
                  num_training_dataloader_workers: int = 1,
                  num_testing_dataloader_workers: int = 1,
@@ -72,9 +72,8 @@ class TrainingAlgorithm:
         self.limit_number_files = limit_number_files
         self.limit_iterations = limit_iterations
 
-        self.stats = stats
-
-        self.directory = self._get_directory()
+        self.base_directory = self._get_directory()
+        self.logger = DataLogger(f"{self.base_directory}/Logs")
 
     def _get_directory(self):
         if not os.path.exists("Exports"):
@@ -86,7 +85,9 @@ class TrainingAlgorithm:
         from datetime import datetime
         date = datetime.today().strftime('%Y-%m-%d_%H-%M')
 
-        path = f"Exports/{self.model.__class__.__name__}_{date}_GIT-{sha}"
+        path = f"{self.model.__class__.__name__}_{date}_GIT-{sha}"
+        path = f"DEBUG-{path}" if self.debug else path
+        path = f"Exports/{path}"
 
         # This block of code makes sure the folder saving to is new and not been saved to before.
         if os.path.exists(path):
@@ -94,14 +95,16 @@ class TrainingAlgorithm:
             while os.path.exists(f"{path}_{num}"):
                 num += 1
             path = f"{path}_{num}"
+
+        os.mkdir(path)
         return path
 
     def save(self, epoch):
-        filename = f"cohen_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
-                   f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}"
+        if not os.path.exists(f"{self.base_directory}/Models"):
+            os.mkdir(self.base_directory)
 
-        if not os.path.exists(self.directory):
-            os.mkdir(self.directory)
+        filename = f"{self.model.__class__.__name__}_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
+                   f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}.pt"
 
         torch.save({
             'epoch': epoch,
@@ -109,7 +112,7 @@ class TrainingAlgorithm:
             'optimiser_state_dict': self.optimiser.state_dict(),
             'loss': self.loss,
             'batch_size': self.batch_size
-        }, f"{self.directory}/Exports/{filename}")
+        }, f"{self.base_directory}/Models/{filename}")
 
     @classmethod
     def load(cls, path):
@@ -124,11 +127,10 @@ class TrainingAlgorithm:
         epoch = checkpoint['epoch']
         loss = checkpoint['loss']
         batch_size = checkpoint['batch_size']
-        stats = ModelStats()
 
         number_epochs_to_do = epoch + 1
         return cls(model, optimiser, loss, number_epochs_to_do, batch_size,
-                   starting_epoch=epoch, stats=stats)
+                   starting_epoch=epoch)
 
     def train(self, data, labels, pos):
         self.model.train()
@@ -176,9 +178,22 @@ class TrainingAlgorithm:
                 current_iteration += 1
 
                 predicted, loss = self.train(data, labels, pos)
+
+                predicted = predicted.cpu().detach().numpy()
+                labels = labels.cpu().detach().numpy()
+                accuracy = (predicted / labels).mean()
+                mean_abs_perc_error = np.mean(np.abs(((labels - predicted) / labels))) * 100
+                mean_sq_error = np.mean(((labels - predicted) ** 2))
+                root_mean_sq_error = np.sqrt(mean_sq_error)
+                self.logger.log("loss", loss.detach().numpy() / len(labels))
+                self.logger.log("accuracy", accuracy)
+                self.logger.log("mean_abs_perc_error", mean_abs_perc_error)
+                self.logger.log("mean_sq_error", mean_sq_error)
+                self.logger.log("root_mean_sq_error", root_mean_sq_error)
+                self.logger.on_epoch_end(epoch)
+
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                       f"≈{self.limit_iterations if self.debug else len(training_dataset) / self.batch_size}")
-                self.stats.update(predicted.cpu(), labels.cpu())
 
             if not validate:
                 continue
@@ -250,26 +265,43 @@ def plot_model(predicted, labels, pos, save_dir: str = None):
     plt.clim(0, 300)
     plt.colorbar(shrink=0.8, label='milliseconds')
 
-    plt.savefig('bop.png')
     plt.show()
 
 
-class ModelStats:
-    def __init__(self):
-        self.epoch = 0
-        self.loss_func = nn.MSELoss()
+class DataLogger:
+    def __init__(self, directory: str):
+        self._log = defaultdict(list)
+        self._directory = directory
 
-    def step_epoch(self):
-        self.epoch += 1
+    @property
+    def directory(self) -> str:
+        return self._directory
 
-    def update(self, y_pred, y_true):
-        acc = (y_true / y_pred).mean()
-        rmse_loss = torch.sqrt(self.loss_func(y_pred, y_true))
-        t1_pred, t2_pred = torch.transpose(y_pred, 0, 1)
-        t1_true, t2_true = torch.transpose(y_true, 0, 1)
-        t1_rmse_loss = torch.sqrt(self.loss_func(t1_pred, t1_true))
-        t2_rmse_loss = torch.sqrt(self.loss_func(t2_pred, t2_true))
-        print(f"RMSE: {rmse_loss.item()}, T1 RMSE: {t1_rmse_loss.item()}, T2 RMSE: {t2_rmse_loss.item()}")
+    @property
+    def filename(self) -> str:
+        return f"logs.csv"
+
+    @property
+    def qualified_filename(self) -> str:
+        return f"{self.directory}/{self.filename}"
+
+    def log(self, field: str, value):
+        self._log[field].append(value)
+
+    def on_epoch_end(self, epoch: int):
+        if not os.path.exists(self._directory):
+            os.mkdir(self._directory)
+
+        file = open(self.qualified_filename, 'w')
+        file.write(f"{','.join(['epoch', *self._log.keys()])}\n")
+
+        values = [str(epoch)]
+        for field, value in self._log.items():
+            values.append(str(np.asarray(value).mean()))
+
+        file.write(f"{','.join(values)}\n")
+
+        self._log = defaultdict(list)
 
 
 def main():
@@ -290,7 +322,6 @@ def main():
         sys.exit(0)
 
     model = CohenMLP()
-    stats = ModelStats()
     optimiser = optim.Adam(model.parameters(), lr=config.learning_rate)
     loss = nn.MSELoss()
     trainer = TrainingAlgorithm(model,
@@ -299,7 +330,6 @@ def main():
                                 loss,
                                 config.total_epochs,
                                 config.batch_size,
-                                stats,
                                 num_training_dataloader_workers=num_training_dataloader_workers,
                                 num_testing_dataloader_workers=num_testing_dataloader_workers,
                                 debug=args.debug,
