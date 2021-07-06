@@ -149,7 +149,7 @@ class TrainingAlgorithm:
         predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
         if self.debug:
-            plot_model(predicted, labels, pos)
+            plot(predicted, labels, pos)
         return predicted, loss
 
     def loop(self, validate):
@@ -215,7 +215,7 @@ class TrainingAlgorithm:
             self.save(epoch)
 
 
-def plot_model(predicted, labels, pos, save_dir: str = None):
+def plot(predicted, labels, pos, save_dir: str = None):
     """
     :param predicted: The predicted t1 and t2 labels.
     :param labels: The ground-truth t1 and t2 labels.
@@ -302,7 +302,7 @@ class DataLogger:
         with open(self.qualified_filename, 'w') as file:
             writer = csv.writer(file)
             if self._first_epoch:
-                writer.writerows(['epoch', *self._log.keys()])
+                writer.writerow(['epoch', *self._log.keys()])
                 self._first_epoch = not self._first_epoch
 
             writer.writerow(values)
