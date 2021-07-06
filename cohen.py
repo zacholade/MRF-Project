@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections import defaultdict
 
 import git
 import matplotlib.pyplot as plt
@@ -12,9 +11,9 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 import torchvision.transforms as transforms
-import csv
 
 from config_parser import Configuration
+from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
 from util import load_all_data_files
@@ -268,46 +267,6 @@ def plot(predicted, labels, pos, save_dir: str = None):
     plt.colorbar(shrink=0.8, label='milliseconds')
 
     plt.show()
-
-
-class DataLogger:
-    def __init__(self, directory: str):
-        self._log = defaultdict(list)
-        self._directory = directory
-
-        self._first_epoch = True
-
-    @property
-    def directory(self) -> str:
-        return self._directory
-
-    @property
-    def filename(self) -> str:
-        return f"logs.csv"
-
-    @property
-    def qualified_filename(self) -> str:
-        return f"{self.directory}/{self.filename}"
-
-    def log(self, field: str, value):
-        self._log[field].append(value)
-
-    def on_epoch_end(self, epoch: int):
-        if not os.path.exists(self._directory):
-            os.mkdir(self._directory)
-
-        values = [str(epoch)]
-        for field, value in self._log.items():
-            values.append(str(np.asarray(value).mean()))
-
-        with open(self.qualified_filename, 'a', newline='') as file:
-            writer = csv.writer(file)
-            if self._first_epoch:
-                writer.writerow(['epoch', *self._log.keys()])
-                self._first_epoch = not self._first_epoch
-            writer.writerow(values)
-
-        self._log = defaultdict(list)
 
 
 def main():
