@@ -101,7 +101,7 @@ class TrainingAlgorithm:
 
     def save(self, epoch):
         if not os.path.exists(f"{self.base_directory}/Models"):
-            os.mkdir(self.base_directory)
+            os.mkdir(f"{self.base_directory}/Models")
 
         filename = f"{self.model.__class__.__name__}_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
                    f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}.pt"
@@ -193,7 +193,7 @@ class TrainingAlgorithm:
                 self.logger.on_epoch_end(epoch)
 
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                      f"≈{self.limit_iterations if self.debug else len(training_dataset) / self.batch_size}")
+                      f"≈{self.limit_iterations if self.debug else np.floor(len(training_dataset) / self.batch_size)}")
 
             if not validate:
                 continue
