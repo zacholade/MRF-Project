@@ -30,14 +30,6 @@ class Configuration:
         return self._config.getboolean("Settings", "validate")
 
     @property
-    def num_training_dataloader_workers(self) -> int:
-        return self._config.getint("Settings", "num_training_dataloader_workers")
-
-    @property
-    def num_testing_dataloader_workers(self) -> int:
-        return self._config.getint("Settings", "num_testing_dataloader_workers")
-
-    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1

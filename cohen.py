@@ -283,13 +283,17 @@ def plot(predicted, labels, pos, save_dir: str = None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-debug', action='store_true', default=False)
+    parser.add_argument('-workers', default=1, type=int)
     args = parser.parse_args()
-    config = Configuration("config.ini", args.debug)
 
-    num_training_dataloader_workers = config.num_training_dataloader_workers if not config.debug else 1
-    num_testing_dataloader_workers = config.num_testing_dataloader_workers if not config.debug else 1
+    debug = args.debug
+    num_workers = args.workers
 
-    print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
+    config = Configuration("config.ini", debug)
+
+
+    print(f"Debug mode is {'enabled' if debug else 'disabled'}.")
+    print(f"There are {num_workers} workers loading training data.")
 
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
@@ -306,9 +310,9 @@ def main():
                                 loss,
                                 config.total_epochs,
                                 config.batch_size,
-                                num_training_dataloader_workers=num_training_dataloader_workers,
-                                num_testing_dataloader_workers=num_testing_dataloader_workers,
-                                debug=args.debug,
+                                num_training_dataloader_workers=num_workers,
+                                num_testing_dataloader_workers=1,
+                                debug=debug,
                                 limit_number_files=config.limit_number_files,
                                 limit_iterations=config.limit_iterations)
     trainer.loop(config.validate)
