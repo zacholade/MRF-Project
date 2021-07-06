@@ -191,7 +191,6 @@ class TrainingAlgorithm:
                 self.logger.log("mean_abs_perc_error", mean_abs_perc_error)
                 self.logger.log("mean_sq_error", mean_sq_error)
                 self.logger.log("root_mean_sq_error", root_mean_sq_error)
-                self.logger.on_epoch_end(epoch)
 
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                       f"≈{self.limit_iterations if self.debug else np.floor(len(training_dataset) / self.batch_size)}")
@@ -213,6 +212,8 @@ class TrainingAlgorithm:
             print(f"Epoch {epoch} complete")
             #  MEAN ABSOLUTE PERCENTAGE ERROR!!
             self.save(epoch)
+
+            self.logger.on_epoch_end(epoch)
 
 
 def plot(predicted, labels, pos, save_dir: str = None):
@@ -299,7 +300,7 @@ class DataLogger:
         for field, value in self._log.items():
             values.append(str(np.asarray(value).mean()))
 
-        with open(self.qualified_filename, 'w') as file:
+        with open(self.qualified_filename, 'a', newline='') as file:
             writer = csv.writer(file)
             if self._first_epoch:
                 writer.writerow(['epoch', *self._log.keys()])
