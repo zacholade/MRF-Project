@@ -292,14 +292,13 @@ class DataLogger:
         if not os.path.exists(self._directory):
             os.mkdir(self._directory)
 
-        file = open(self.qualified_filename, 'w')
-        file.write(f"{','.join(['epoch', *self._log.keys()])}\n")
-
         values = [str(epoch)]
         for field, value in self._log.items():
             values.append(str(np.asarray(value).mean()))
 
-        file.write(f"{','.join(values)}\n")
+        with open(self.qualified_filename, 'w') as file:
+            file.write(f"{','.join(['epoch', *self._log.keys()])}\n")
+            file.write(f"{','.join(values)}\n")
 
         self._log = defaultdict(list)
 
