@@ -148,7 +148,8 @@ class TrainingAlgorithm:
         predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
         if self.debug:
-            plot(predicted, labels, pos)
+            pass
+            # plot(predicted, labels, pos)
         return predicted, loss
 
     def loop(self, validate):
@@ -182,12 +183,10 @@ class TrainingAlgorithm:
 
                 predicted = predicted.cpu().detach().numpy()
                 labels = labels.cpu().detach().numpy()
-                accuracy = (predicted / labels).mean()
                 mean_abs_perc_error = np.mean(np.abs(((labels - predicted) / labels))) * 100
                 mean_sq_error = np.mean(((labels - predicted) ** 2))
                 root_mean_sq_error = np.sqrt(mean_sq_error)
                 self.logger.log("train_loss", loss.cpu().detach().numpy() / len(labels))
-                self.logger.log("train_accuracy", accuracy)
                 self.logger.log("train_mean_abs_perc_error", mean_abs_perc_error)
                 self.logger.log("train_mean_sq_error", mean_sq_error)
                 self.logger.log("train_root_mean_sq_error", root_mean_sq_error)
@@ -214,12 +213,10 @@ class TrainingAlgorithm:
                 predicted, loss = self.validate(data, labels, pos)
                 predicted = predicted.cpu().detach().numpy()
                 labels = labels.cpu().detach().numpy()
-                accuracy = (predicted / labels).mean()
                 mean_abs_perc_error = np.mean(np.abs(((labels - predicted) / labels))) * 100
                 mean_sq_error = np.mean(((labels - predicted) ** 2))
                 root_mean_sq_error = np.sqrt(mean_sq_error)
                 self.logger.log("valid_loss", loss.cpu().detach().numpy() / len(labels))
-                self.logger.log("valid_accuracy", accuracy)
                 self.logger.log("valid_mean_abs_perc_error", mean_abs_perc_error)
                 self.logger.log("valid_mean_sq_error", mean_sq_error)
                 self.logger.log("valid_root_mean_sq_error", root_mean_sq_error)
