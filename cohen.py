@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
 import torchvision.transforms as transforms
+import csv
 
 from config_parser import Configuration
 from datasets import PixelwiseDataset, ScanwiseDataset
@@ -273,6 +274,8 @@ class DataLogger:
         self._log = defaultdict(list)
         self._directory = directory
 
+        self._first_epoch = True
+
     @property
     def directory(self) -> str:
         return self._directory
@@ -297,8 +300,12 @@ class DataLogger:
             values.append(str(np.asarray(value).mean()))
 
         with open(self.qualified_filename, 'w') as file:
-            file.write(f"{','.join(['epoch', *self._log.keys()])}\n")
-            file.write(f"{','.join(values)}\n")
+            writer = csv.writer(file)
+            if self._first_epoch:
+                writer.writerows(['epoch', *self._log.keys()])
+                self._first_epoch = not self._first_epoch
+
+            writer.writerow(values)
 
         self._log = defaultdict(list)
 
