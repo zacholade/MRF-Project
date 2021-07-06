@@ -193,7 +193,7 @@ class TrainingAlgorithm:
                 self.logger.log("root_mean_sq_error", root_mean_sq_error)
 
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                      f"≈{self.limit_iterations if self.debug else np.floor(len(training_dataset) / self.batch_size)}")
+                      f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}")
 
             if not validate:
                 continue
@@ -305,7 +305,6 @@ class DataLogger:
             if self._first_epoch:
                 writer.writerow(['epoch', *self._log.keys()])
                 self._first_epoch = not self._first_epoch
-
             writer.writerow(values)
 
         self._log = defaultdict(list)
