@@ -209,7 +209,7 @@ class TrainingAlgorithm:
             validate_set = iter(validate_loader)
 
             for current_iteration, (data, labels, pos) in enumerate(validate_set):
-                print(f"Epoch: {epoch}, Validation iteration: {current_iteration} / "
+                print(f"Epoch: {epoch}, Validation scan: {current_iteration} / "
                       f"{len(validate_loader)}")
                 predicted, loss = self.validate(data, labels, pos)
                 predicted = predicted.cpu().detach().numpy()
