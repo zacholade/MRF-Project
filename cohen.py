@@ -161,15 +161,16 @@ class TrainingAlgorithm:
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, transform=validation_transforms)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
-            train_loader = iter(torch.utils.data.DataLoader(training_dataset,
-                                                            batch_size=self.batch_size,
-                                                            shuffle=True,
-                                                            pin_memory=True,
-                                                            collate_fn=PixelwiseDataset.collate_fn,
-                                                            num_workers=self.num_training_dataloader_workers,
-                                                            drop_last=True))
+            train_loader = torch.utils.data.DataLoader(training_dataset,
+                                                       batch_size=self.batch_size,
+                                                       shuffle=True,
+                                                       pin_memory=True,
+                                                       collate_fn=PixelwiseDataset.collate_fn,
+                                                       num_workers=self.num_training_dataloader_workers,
+                                                       drop_last=True)
+            train_set = iter(train_loader)
 
-            for current_iteration, (data, labels, pos) in enumerate(train_loader):
+            for current_iteration, (data, labels, pos) in enumerate(train_set):
                 if all([self.debug, self.limit_iterations > 0,
                         current_iteration % self.limit_iterations == 0,
                         current_iteration != 0]):
@@ -185,11 +186,11 @@ class TrainingAlgorithm:
                 mean_abs_perc_error = np.mean(np.abs(((labels - predicted) / labels))) * 100
                 mean_sq_error = np.mean(((labels - predicted) ** 2))
                 root_mean_sq_error = np.sqrt(mean_sq_error)
-                self.logger.log("loss", loss.cpu().detach().numpy() / len(labels))
-                self.logger.log("accuracy", accuracy)
-                self.logger.log("mean_abs_perc_error", mean_abs_perc_error)
-                self.logger.log("mean_sq_error", mean_sq_error)
-                self.logger.log("root_mean_sq_error", root_mean_sq_error)
+                self.logger.log("train_loss", loss.cpu().detach().numpy() / len(labels))
+                self.logger.log("train_accuracy", accuracy)
+                self.logger.log("train_mean_abs_perc_error", mean_abs_perc_error)
+                self.logger.log("train_mean_sq_error", mean_sq_error)
+                self.logger.log("train_root_mean_sq_error", root_mean_sq_error)
 
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                       f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}")
@@ -199,20 +200,33 @@ class TrainingAlgorithm:
 
             print(f"Done training. Starting validation for epoch {epoch}.")
             # Eval
-            validate_loader = iter(torch.utils.data.DataLoader(validation_dataset,
-                                                               batch_size=1,
-                                                               shuffle=False,
-                                                               pin_memory=True,
-                                                               num_workers=self.num_testing_dataloader_workers,
-                                                               collate_fn=ScanwiseDataset.collate_fn))
-            data, labels, pos = next(validate_loader)
-            predicted, loss = self.validate(data, labels, pos)
+            validate_loader = torch.utils.data.DataLoader(validation_dataset,
+                                                          batch_size=1,
+                                                          shuffle=False,
+                                                          pin_memory=True,
+                                                          num_workers=self.num_testing_dataloader_workers,
+                                                          collate_fn=ScanwiseDataset.collate_fn)
+            validate_set = iter(validate_loader)
 
-            print(f"Epoch {epoch} complete")
-            #  MEAN ABSOLUTE PERCENTAGE ERROR!!
+            for current_iteration, (data, labels, pos) in enumerate(validate_set):
+                print(f"Epoch: {epoch}, Validation iteration: {current_iteration} / "
+                      f"{len(validate_loader)}")
+                predicted, loss = self.validate(data, labels, pos)
+                predicted = predicted.cpu().detach().numpy()
+                labels = labels.cpu().detach().numpy()
+                accuracy = (predicted / labels).mean()
+                mean_abs_perc_error = np.mean(np.abs(((labels - predicted) / labels))) * 100
+                mean_sq_error = np.mean(((labels - predicted) ** 2))
+                root_mean_sq_error = np.sqrt(mean_sq_error)
+                self.logger.log("valid_loss", loss.cpu().detach().numpy() / len(labels))
+                self.logger.log("valid_accuracy", accuracy)
+                self.logger.log("valid_mean_abs_perc_error", mean_abs_perc_error)
+                self.logger.log("valid_mean_sq_error", mean_sq_error)
+                self.logger.log("valid_root_mean_sq_error", root_mean_sq_error)
+
             self.save(epoch)
-
             self.logger.on_epoch_end(epoch)
+            print(f"Epoch {epoch} complete")
 
 
 def plot(predicted, labels, pos, save_dir: str = None):
