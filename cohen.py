@@ -162,13 +162,13 @@ class TrainingAlgorithm:
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, transform=validation_transforms)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
-            train_loader = torch.utils.data.DataLoader(training_dataset,
-                                                       batch_size=self.batch_size,
-                                                       shuffle=True,
-                                                       pin_memory=True,
-                                                       collate_fn=PixelwiseDataset.collate_fn,
-                                                       num_workers=self.num_training_dataloader_workers,
-                                                       drop_last=True)
+            train_loader = iter(torch.utils.data.DataLoader(training_dataset,
+                                                            batch_size=self.batch_size,
+                                                            shuffle=True,
+                                                            pin_memory=True,
+                                                            collate_fn=PixelwiseDataset.collate_fn,
+                                                            num_workers=self.num_training_dataloader_workers,
+                                                            drop_last=True))
 
             for current_iteration, (data, labels, pos) in enumerate(train_loader):
                 if all([self.debug, self.limit_iterations > 0,
@@ -200,13 +200,13 @@ class TrainingAlgorithm:
 
             print(f"Done training. Starting validation for epoch {epoch}.")
             # Eval
-            validate_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                          batch_size=1,
-                                                          shuffle=False,
-                                                          pin_memory=True,
-                                                          num_workers=self.num_testing_dataloader_workers,
-                                                          collate_fn=ScanwiseDataset.collate_fn)
-            data, labels, pos = next(iter(validate_loader))
+            validate_loader = iter(torch.utils.data.DataLoader(validation_dataset,
+                                                               batch_size=1,
+                                                               shuffle=False,
+                                                               pin_memory=True,
+                                                               num_workers=self.num_testing_dataloader_workers,
+                                                               collate_fn=ScanwiseDataset.collate_fn))
+            data, labels, pos = next(validate_loader)
             predicted, loss = self.validate(data, labels, pos)
 
             print(f"Epoch {epoch} complete")
