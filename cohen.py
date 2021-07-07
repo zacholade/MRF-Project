@@ -183,7 +183,7 @@ class TrainingAlgorithm:
 
                 current_iteration += 1
                 if current_iteration % 100 == 0:
-                    print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
+                    print(f"Epoch: {epoch}, Training iteration: {current_iteration + 1} / "
                           f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}, "
                           f"LR: {self.lr_scheduler.get_last_lr()[0]}")
                 predicted, loss = self.train(data, labels, pos)
@@ -203,7 +203,7 @@ class TrainingAlgorithm:
             validate_set = iter(validate_loader)
 
             for current_iteration, (data, labels, pos) in enumerate(validate_set):
-                print(f"Epoch: {epoch}, Validation scan: {current_iteration} / "
+                print(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
                       f"{len(validate_loader)}")
                 data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
                 predicted, loss = self.validate(data, labels, pos)
