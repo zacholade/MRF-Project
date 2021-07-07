@@ -11,4 +11,4 @@ RUN apt-get update && \
 
 # Run the application:
 COPY . .
-ENTRYPOINT ["python", "cohen.py"]
+ENTRYPOINT ["python", "test.py"]
