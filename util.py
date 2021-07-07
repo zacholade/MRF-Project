@@ -27,7 +27,9 @@ def load_all_data_files(data_type: str = "Train", file_limit: int = -1):
     # Find the max shape so we can apply padding in the following for loop instead of a separate for loop.
     max_size = max([np.load(label_file_name, mmap_mode='r').shape[0] for label_file_name in label_file_names])
 
-    data_files, label_files, file_lens = [], [], []
+    data_files = np.zeros((len(data_file_names), max_size, 1000))
+    label_files = np.zeros((len(label_file_names), max_size, 4))
+    file_lens = []
     for i, (data_file_name, label_file_name) in enumerate(zip(data_file_names, label_file_names)):
         print(f"Loading {data_type}ing file {i+1} / {len(label_file_names)}.")
         data_file = np.load(data_file_name)
@@ -39,17 +41,12 @@ def load_all_data_files(data_type: str = "Train", file_limit: int = -1):
         padded_data_file[:data_file.shape[0], :data_file.shape[1]] = data_file
         padded_label_file[:label_file.shape[0], :label_file.shape[1]] = label_file
         file_lens.append(data_file.shape[0])
-
+        data_files[i] = padded_data_file
+        label_files[i] = padded_label_file
         # We want to apply padding to all the fingerprints so that they can be stacked in a big numpy array.
         # Why? Because when we pass this data to our PixelwiseDataset/Scanwise etc, we want to use a batch sampler
         # so that we can sample x amount of indices at once, instead of calling __getitem__ x amount of times (slow).
         # If we cant stack them then we have to store them in a python list which wont let us index it.
         # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
-        if i == 0:
-            data_files = np.array(padded_data_file).reshape(1, *padded_data_file.shape)
-            label_files = np.array(padded_label_file).reshape(1, *padded_label_file.shape)
-        else:
-            data_files = np.concatenate([data_files, padded_data_file.reshape(1, *padded_data_file.shape)], axis=0)
-            label_files = np.concatenate([label_files, padded_label_file.reshape(1, *padded_label_file.shape)], axis=0)
 
     return data_files, label_files, np.asarray(file_lens)
