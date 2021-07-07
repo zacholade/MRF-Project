@@ -210,6 +210,7 @@ class TrainingAlgorithm:
                 self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
 
             self.lr_scheduler.step()
+            self.logger.log('learning_rate', self.lr_scheduler.get_last_lr())
             self.save(epoch)
             self.logger.on_epoch_end(epoch)
             print(f"Epoch {epoch} complete")
