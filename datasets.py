@@ -42,9 +42,6 @@ class PixelwiseDataset(torch.utils.data.Dataset):
 
 class ScanwiseDataset(PixelwiseDataset):
     """1 index = 1 entire scan."""
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
     def __getitem__(self, index):
         data = self.data[index][:self._file_lens[index]]  # second index just removes the padding applied.
         labels = self.labels[index][:self._file_lens[index]]
@@ -58,10 +55,3 @@ class ScanwiseDataset(PixelwiseDataset):
 
     def __len__(self):
         return len(self.data)
-
-    @staticmethod
-    def collate_fn(batch):
-        data = torch.FloatTensor(batch[0][0])
-        labels = torch.FloatTensor(batch[0][1])
-        pos = torch.FloatTensor(batch[0][2])
-        return [data, labels, pos]
