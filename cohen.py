@@ -134,7 +134,6 @@ class TrainingAlgorithm:
 
     def train(self, data, labels, pos):
         self.model.train()
-        data, labels = data.to(self.device), labels.to(self.device)
         predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
         self.optimiser.zero_grad()
@@ -144,7 +143,6 @@ class TrainingAlgorithm:
 
     def validate(self, data, labels, pos):
         self.model.eval()
-        data, labels = data.to(self.device), labels.to(self.device)
         predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
         if self.debug:
@@ -173,6 +171,7 @@ class TrainingAlgorithm:
             train_set = iter(train_loader)
 
             for current_iteration, (data, labels, pos) in enumerate(train_set):
+                data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
                 if all([self.debug, self.limit_iterations > 0,
                         current_iteration % self.limit_iterations == 0,
                         current_iteration != 0]):
@@ -181,16 +180,7 @@ class TrainingAlgorithm:
                 current_iteration += 1
 
                 predicted, loss = self.train(data, labels, pos)
-
-                predicted = predicted.detach()
-                labels = labels.detach()
-                mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
-                mean_sq_error = torch.mean(((labels - predicted) ** 2))
-                root_mean_sq_error = torch.sqrt(mean_sq_error)
-                self.logger.log("train_loss", loss.detach() / len(labels))
-                self.logger.log("train_mean_abs_perc_error", mean_abs_perc_error)
-                self.logger.log("train_mean_sq_error", mean_sq_error)
-                self.logger.log("train_root_mean_sq_error", root_mean_sq_error)
+                self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
 
                 print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                       f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}")
@@ -211,16 +201,9 @@ class TrainingAlgorithm:
             for current_iteration, (data, labels, pos) in enumerate(validate_set):
                 print(f"Epoch: {epoch}, Validation scan: {current_iteration} / "
                       f"{len(validate_loader)}")
+                data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
                 predicted, loss = self.validate(data, labels, pos)
-                predicted = predicted.detach()
-                labels = labels.detach()
-                mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
-                mean_sq_error = torch.mean(((labels - predicted) ** 2))
-                root_mean_sq_error = torch.sqrt(mean_sq_error)
-                self.logger.log("valid_loss", loss.detach() / len(labels))
-                self.logger.log("valid_mean_abs_perc_error", mean_abs_perc_error)
-                self.logger.log("valid_mean_sq_error", mean_sq_error)
-                self.logger.log("valid_root_mean_sq_error", root_mean_sq_error)
+                self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
 
             self.save(epoch)
             self.logger.on_epoch_end(epoch)
@@ -293,6 +276,7 @@ def main():
 
     print(f"Debug mode is {'enabled' if debug else 'disabled'}.")
     print(f"There are {num_workers} sub-process workers loading training data.")
+    print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}.")
 
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
