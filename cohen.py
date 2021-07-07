@@ -44,7 +44,8 @@ class CohenMLP(nn.Module):
 class TrainingAlgorithm:
     def __init__(self,
                  model,
-                 optimiser: torch.optim.Optimizer,
+                 optimiser: optim.Optimizer,
+                 lr_scheduler,
                  initial_lr: float,
                  loss,
                  total_epochs: int,
@@ -59,6 +60,7 @@ class TrainingAlgorithm:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = model.to(self.device)
         self.optimiser = optimiser
+        self.lr_scheduler = lr_scheduler
         self.initial_lr = initial_lr
         self.loss = loss
         self.starting_epoch = starting_epoch
@@ -110,6 +112,7 @@ class TrainingAlgorithm:
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
             'optimiser_state_dict': self.optimiser.state_dict(),
+            'lr_scheduler': self.lr_scheduler.state_dict(),
             'loss': self.loss,
             'batch_size': self.batch_size
         }, f"{self.base_directory}/Models/{filename}")
@@ -123,6 +126,8 @@ class TrainingAlgorithm:
 
         optimiser = optim.Adam(model.parameters())
         optimiser.load_state_dict(checkpoint['optimiser_state_dict'])
+
+        lr_scheduler = optim.lr_scheduler.StepLR  # TODO
 
         epoch = checkpoint['epoch']
         loss = checkpoint['loss']
@@ -150,6 +155,11 @@ class TrainingAlgorithm:
             # plot(predicted, labels, pos)
         return predicted, loss
 
+    def _should_break_early(self, current_iteration) -> bool:
+        return self.debug and self.limit_iterations > 0 and \
+               current_iteration % self.limit_iterations == 0 and \
+               current_iteration != 0
+
     def loop(self, validate):
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
@@ -160,30 +170,24 @@ class TrainingAlgorithm:
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens, transform=validation_transforms)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
-            train_loader = DataLoader(training_dataset,
-                                      pin_memory=True,
-                                      collate_fn=PixelwiseDataset.collate_fn,
+            train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
                                       num_workers=self.num_training_dataloader_workers,
-                                      sampler=BatchSampler(
-                                          RandomSampler(training_dataset),
-                                          batch_size=self.batch_size,
-                                          drop_last=True))
+                                      sampler=BatchSampler(RandomSampler(training_dataset),
+                                                           batch_size=self.batch_size, drop_last=True))
             train_set = iter(train_loader)
-
             for current_iteration, (data, labels, pos) in enumerate(train_set):
                 data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-                if all([self.debug, self.limit_iterations > 0,
-                        current_iteration % self.limit_iterations == 0,
-                        current_iteration != 0]):
+
+                if self._should_break_early(current_iteration):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
-
+                if current_iteration % 100 == 0:
+                    print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
+                          f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}, "
+                          f"LR: {self.lr_scheduler.get_last_lr()[0]}")
                 predicted, loss = self.train(data, labels, pos)
                 self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
-
-                print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                      f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}")
 
             if not validate:
                 continue
@@ -205,6 +209,7 @@ class TrainingAlgorithm:
                 predicted, loss = self.validate(data, labels, pos)
                 self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
 
+            self.lr_scheduler.step()
             self.save(epoch)
             self.logger.on_epoch_end(epoch)
             print(f"Epoch {epoch} complete")
@@ -285,11 +290,13 @@ def main():
         sys.exit(0)
 
     model = CohenMLP()
-    optimiser = optim.Adam(model.parameters(), lr=config.learning_rate)
+    optimiser = optim.Adam(model.parameters(), lr=config.lr)
+    lr_scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=config.lr_step_size, gamma=config.lr_gamma)
     loss = nn.MSELoss()
     trainer = TrainingAlgorithm(model,
                                 optimiser,
-                                config.learning_rate,
+                                lr_scheduler,
+                                config.lr,
                                 loss,
                                 config.total_epochs,
                                 config.batch_size,

@@ -22,8 +22,16 @@ class Configuration:
         return self._config.getint("TrainingHyperparameters", "batch_size")
 
     @property
-    def learning_rate(self) -> float:
-        return self._config.getfloat("TrainingHyperparameters", "learning_rate")
+    def lr(self) -> float:
+        return self._config.getfloat("TrainingHyperparameters", "lr")
+
+    @property
+    def lr_step_size(self) -> int:
+        return self._config.getint("TrainingHyperparameters", "lr_step_size")
+
+    @property
+    def lr_gamma(self) -> float:
+        return self._config.getfloat("TrainingHyperparameters", "lr_gamma")
 
     @property
     def validate(self) -> bool:

@@ -15,7 +15,6 @@ class DataLogger:
     def __init__(self, directory: str):
         self._log = defaultdict(list)
         self._directory = directory
-        self._first_epoch = True
 
     @property
     def directory(self) -> str:
@@ -68,9 +67,8 @@ class DataLogger:
 
         with open(self.qualified_filename, 'a', newline='') as file:
             writer = csv.writer(file)
-            if self._first_epoch:
+            if epoch == 1:  # First epoch. Write the csv header labels.
                 writer.writerow(['epoch', *self._log.keys()])
-                self._first_epoch = not self._first_epoch
             writer.writerow(values)
 
         self._log = defaultdict(list)
