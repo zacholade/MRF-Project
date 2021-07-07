@@ -34,9 +34,9 @@ class DataLogger:
         mean_sq_error = torch.mean(((labels - predicted) ** 2))
         root_mean_sq_error = torch.sqrt(mean_sq_error)
         self.log(f"{data_type}_loss", loss / len(labels))
-        self.log(f"{data_type}_mean_abs_perc_error", mean_abs_perc_error)
-        self.log(f"{data_type}_mean_sq_error", mean_sq_error)
-        self.log(f"{data_type}_root_mean_sq_error", root_mean_sq_error)
+        self.log(f"{data_type}_mean_abs_perc_error", mean_abs_perc_error.cpu())
+        self.log(f"{data_type}_mean_sq_error", mean_sq_error.cpu())
+        self.log(f"{data_type}_root_mean_sq_error", root_mean_sq_error.cpu())
 
         t1_true, t2_true = torch.transpose(labels, 0, 1)
         t1_pred, t2_pred = torch.transpose(predicted, 0, 1)
@@ -44,16 +44,16 @@ class DataLogger:
         t1_mean_abs_perc_error = torch.mean(torch.abs(((t1_true - t1_pred) / t1_true))) * 100
         t1_mean_sq_error = torch.mean(((t1_true - t1_pred) ** 2))
         t1_root_mean_sq_error = torch.sqrt(t1_mean_sq_error)
-        self.log(f"{data_type}_t1_mean_abs_perc_error", t1_mean_abs_perc_error)
-        self.log(f"{data_type}_t1_mean_sq_error", t1_mean_sq_error)
-        self.log(f"{data_type}_t1_root_mean_sq_error", t1_root_mean_sq_error)
+        self.log(f"{data_type}_t1_mean_abs_perc_error", t1_mean_abs_perc_error.cpu())
+        self.log(f"{data_type}_t1_mean_sq_error", t1_mean_sq_error.cpu())
+        self.log(f"{data_type}_t1_root_mean_sq_error", t1_root_mean_sq_error.cpu())
 
         t2_mean_abs_perc_error = torch.mean(torch.abs(((t2_true - t2_pred) / t2_true))) * 100
         t2_mean_sq_error = torch.mean(((t2_true - t2_pred) ** 2))
         t2_root_mean_sq_error = torch.sqrt(t2_mean_sq_error)
-        self.log(f"{data_type}_t2_mean_abs_perc_error", t2_mean_abs_perc_error)
-        self.log(f"{data_type}_t2_mean_sq_error", t2_mean_sq_error)
-        self.log(f"{data_type}_t2_root_mean_sq_error", t2_root_mean_sq_error)
+        self.log(f"{data_type}_t2_mean_abs_perc_error", t2_mean_abs_perc_error.cpu())
+        self.log(f"{data_type}_t2_mean_sq_error", t2_mean_sq_error.cpu())
+        self.log(f"{data_type}_t2_root_mean_sq_error", t2_root_mean_sq_error.cpu())
 
     def log(self, field: str, value):
         self._log[field].append(value)
