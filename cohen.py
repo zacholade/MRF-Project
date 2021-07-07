@@ -9,8 +9,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.utils.data
 import torchvision.transforms as transforms
+from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 
 from config_parser import Configuration
 from data_logger import DataLogger
@@ -156,19 +156,20 @@ class TrainingAlgorithm:
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
-        train_data, train_labels = load_all_data_files("Train", file_limit=self.limit_number_files)
-        valid_data, valid_labels = load_all_data_files("Test", file_limit=self.limit_number_files)
-        training_dataset = PixelwiseDataset(train_data, train_labels, transform=training_transforms)
-        validation_dataset = ScanwiseDataset(valid_data, valid_labels, transform=validation_transforms)
+        train_data, train_labels, train_file_lens = load_all_data_files("Train", file_limit=self.limit_number_files)
+        valid_data, valid_labels, valid_file_lens = load_all_data_files("Test", file_limit=self.limit_number_files)
+        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens, transform=training_transforms)
+        validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens, transform=validation_transforms)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
-            train_loader = torch.utils.data.DataLoader(training_dataset,
-                                                       batch_size=self.batch_size,
-                                                       shuffle=True,
-                                                       pin_memory=True,
-                                                       collate_fn=PixelwiseDataset.collate_fn,
-                                                       num_workers=self.num_training_dataloader_workers,
-                                                       drop_last=True)
+            train_loader = DataLoader(training_dataset,
+                                      pin_memory=True,
+                                      collate_fn=PixelwiseDataset.collate_fn,
+                                      num_workers=self.num_training_dataloader_workers,
+                                      sampler=BatchSampler(
+                                          RandomSampler(training_dataset),
+                                          batch_size=self.batch_size,
+                                          drop_last=True))
             train_set = iter(train_loader)
 
             for current_iteration, (data, labels, pos) in enumerate(train_set):
@@ -201,10 +202,10 @@ class TrainingAlgorithm:
             # Eval
             validate_loader = torch.utils.data.DataLoader(validation_dataset,
                                                           batch_size=1,
+                                                          collate_fn=ScanwiseDataset.collate_fn,
                                                           shuffle=False,
                                                           pin_memory=True,
-                                                          num_workers=self.num_testing_dataloader_workers,
-                                                          collate_fn=ScanwiseDataset.collate_fn)
+                                                          num_workers=self.num_testing_dataloader_workers)
             validate_set = iter(validate_loader)
 
             for current_iteration, (data, labels, pos) in enumerate(validate_set):
@@ -283,7 +284,7 @@ def plot(predicted, labels, pos, save_dir: str = None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-debug', action='store_true', default=False)
-    parser.add_argument('-workers', default=1, type=int)
+    parser.add_argument('-workers', default=0, type=int)
     args = parser.parse_args()
 
     debug = args.debug

@@ -11,7 +11,7 @@ class ExcludeProtonDensity:
 
     def __call__(self, sample):
         data, labels, pos = sample
-        return data, labels[:-1], pos
+        return data, np.delete(labels, -1, axis=1), pos
 
 
 class ScaleLabels:
@@ -24,12 +24,8 @@ class ScaleLabels:
         self.scaling_factor = scaling_factor
 
     def __call__(self, sample):
-        # labels = np.transpose(labels, axes=(2, 0, 1))
-        # t1, t2 = labels[0] * self.scaling_factor, labels[1] * self.scaling_factor
-        # labels = np.asarray([t1, t2])
-        # labels = np.transpose(labels, axes=(1, 2, 0))
         data, labels, pos = sample
-        return data, (labels[0] * self.scaling_factor, labels[1] * self.scaling_factor), pos
+        return data, labels * self.scaling_factor, pos
 
 
 class NoiseTransform:
