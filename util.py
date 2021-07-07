@@ -30,10 +30,16 @@ def load_all_data_files(data_type: str = "Train", file_limit: int = -1):
         data_files.append(np.load(data_file_name))
         label_files.append(np.load(label_file_name))
 
+    # We want to apply padding to all the fingerprints so that they can be stacked in a big numpy array.
+    # Why? Because when we pass this data to our PixelwiseDataset/Scanwise etc, we want to use a batch sampler
+    # so that we can sample x amount of indices at once, instead of calling __getitem__ x amount of times (slow).
+    # If we cant stack them then we have to store them in a python list which wont let us index it.
+    # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
     data_shape = (max([file.shape[0] for file in data_files]), data_files[0].shape[1])
     label_shape = (max([file.shape[0] for file in label_files]), label_files[0].shape[1])
     file_lens = []
     for i, (data_file, label_file) in enumerate(zip(data_files, label_files)):
+        print(f"Padding {data_type}ing file {i+1} / {len(label_file_names)}.")
         file_lens.append(data_file.shape[0])
         padded_data_file = np.zeros(data_shape)
         padded_label_file = np.zeros(label_shape)

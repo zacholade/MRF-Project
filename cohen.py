@@ -289,12 +289,10 @@ def main():
 
     debug = args.debug
     num_workers = args.workers
-
     config = Configuration("config.ini", debug)
 
-
     print(f"Debug mode is {'enabled' if debug else 'disabled'}.")
-    print(f"There are {num_workers} workers loading training data.")
+    print(f"There are {num_workers} sub-process workers loading training data.")
 
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
