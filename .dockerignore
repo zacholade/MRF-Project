@@ -1,8 +1,4 @@
 Data/
-# Git
-
-.git
-.gitignore
 
 # CI
 .codeclimate.yml
