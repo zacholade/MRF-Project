@@ -33,7 +33,7 @@ class DataLogger:
         mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
         mean_sq_error = torch.mean(((labels - predicted) ** 2))
         root_mean_sq_error = torch.sqrt(mean_sq_error)
-        self.log(f"{data_type}_loss", loss / len(labels))
+        self.log(f"{data_type}_loss", (loss / len(labels)).cpu())
         self.log(f"{data_type}_mean_abs_perc_error", mean_abs_perc_error.cpu())
         self.log(f"{data_type}_mean_sq_error", mean_sq_error.cpu())
         self.log(f"{data_type}_root_mean_sq_error", root_mean_sq_error.cpu())
