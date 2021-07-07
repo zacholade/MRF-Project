@@ -182,12 +182,12 @@ class TrainingAlgorithm:
 
                 predicted, loss = self.train(data, labels, pos)
 
-                predicted = predicted.cpu().detach().numpy()
-                labels = labels.cpu().detach().numpy()
-                mean_abs_perc_error = np.mean(np.abs(((labels - predicted) / labels))) * 100
-                mean_sq_error = np.mean(((labels - predicted) ** 2))
-                root_mean_sq_error = np.sqrt(mean_sq_error)
-                self.logger.log("train_loss", loss.cpu().detach().numpy() / len(labels))
+                predicted = predicted.detach()
+                labels = labels.detach()
+                mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
+                mean_sq_error = torch.mean(((labels - predicted) ** 2))
+                root_mean_sq_error = torch.sqrt(mean_sq_error)
+                self.logger.log("train_loss", loss.detach() / len(labels))
                 self.logger.log("train_mean_abs_perc_error", mean_abs_perc_error)
                 self.logger.log("train_mean_sq_error", mean_sq_error)
                 self.logger.log("train_root_mean_sq_error", root_mean_sq_error)
@@ -212,12 +212,12 @@ class TrainingAlgorithm:
                 print(f"Epoch: {epoch}, Validation scan: {current_iteration} / "
                       f"{len(validate_loader)}")
                 predicted, loss = self.validate(data, labels, pos)
-                predicted = predicted.cpu().detach().numpy()
-                labels = labels.cpu().detach().numpy()
-                mean_abs_perc_error = np.mean(np.abs(((labels - predicted) / labels))) * 100
-                mean_sq_error = np.mean(((labels - predicted) ** 2))
-                root_mean_sq_error = np.sqrt(mean_sq_error)
-                self.logger.log("valid_loss", loss.cpu().detach().numpy() / len(labels))
+                predicted = predicted.detach()
+                labels = labels.detach()
+                mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
+                mean_sq_error = torch.mean(((labels - predicted) ** 2))
+                root_mean_sq_error = torch.sqrt(mean_sq_error)
+                self.logger.log("valid_loss", loss.detach() / len(labels))
                 self.logger.log("valid_mean_abs_perc_error", mean_abs_perc_error)
                 self.logger.log("valid_mean_sq_error", mean_sq_error)
                 self.logger.log("valid_root_mean_sq_error", root_mean_sq_error)
