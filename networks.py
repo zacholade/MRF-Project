@@ -21,11 +21,10 @@ class CohenMLP(nn.Module):
 class OksuzLSTM(nn.Module):
     def __init__(self):
         super().__init__()
-        self.rnn1 = nn.LSTM(input_size=1, hidden_size=1, batch_first=True)
-        self.l1 = nn.Linear(1000, 2)
+        self.rnn = nn.LSTM(input_size=1, hidden_size=50, num_layers=1, batch_first=True)
+        self.fc = nn.Linear(in_features=50, out_features=2)
 
     def forward(self, x):
-        x, (hn, cn) = self.rnn1(x)
-        x = x.reshape(x.shape[0], x.shape[1])
-        x = self.l1(x)
-        return x
+        lstm_out, (hn, _) = self.rnn(x)
+        fc_out = self.fc(hn.squeeze())
+        return fc_out
