@@ -216,10 +216,11 @@ def main():
     if args.network == 'cohen':
         model = CohenMLP()
     elif args.network == 'oksuz_lstm':
-        model = OksuzLSTM()
+        model = OksuzLSTM(hidden_size=config.model_hidden_size, num_layers=config.model_num_layers,
+                          bidirectional=config.model_bidirectional)
     else:
-        import sys
-        print("Invalid model. Exiting...")
+        import sys  # Should not be able to reach here as we provide a choice.
+        print("Invalid network. Exiting...")
         sys.exit(1)
 
     optimiser = optim.Adam(model.parameters(), lr=config.lr)

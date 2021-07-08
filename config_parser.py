@@ -35,6 +35,18 @@ class Configuration:
         return self._config.getfloat(f"{self.network_name}Hyperparameters", "lr_gamma")
 
     @property
+    def model_hidden_size(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "model_hidden_size")
+
+    @property
+    def model_num_layers(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "model_num_layers")
+
+    @property
+    def model_bidirectional(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "bidirectional")
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1

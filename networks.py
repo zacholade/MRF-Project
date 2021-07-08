@@ -19,10 +19,11 @@ class CohenMLP(nn.Module):
 
 
 class OksuzLSTM(nn.Module):
-    def __init__(self):
+    def __init__(self, hidden_size: int, num_layers: int = 1, bidirectional: bool = False):
         super().__init__()
-        self.rnn = nn.LSTM(input_size=1, hidden_size=50, num_layers=1, batch_first=True)
-        self.fc = nn.Linear(in_features=50, out_features=2)
+        self.rnn = nn.LSTM(input_size=1, hidden_size=hidden_size, num_layers=num_layers,
+                           batch_first=True, bidirectional=bidirectional)
+        self.fc = nn.Linear(in_features=hidden_size, out_features=2)
 
     def forward(self, x):
         lstm_out, (hn, _) = self.rnn(x)
