@@ -41,6 +41,10 @@ class CohenMLP(nn.Module):
         return x1
 
 
+class Rinq(nn.Module):
+    ...
+
+
 class TrainingAlgorithm:
     def __init__(self,
                  model,
@@ -160,7 +164,7 @@ class TrainingAlgorithm:
                current_iteration % self.limit_iterations == 0 and \
                current_iteration != 0
 
-    def loop(self, validate):
+    def loop(self, skip_valid):
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
@@ -183,13 +187,13 @@ class TrainingAlgorithm:
 
                 current_iteration += 1
                 if current_iteration % 100 == 0:
-                    print(f"Epoch: {epoch}, Training iteration: {current_iteration + 1} / "
+                    print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                           f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}, "
                           f"LR: {self.lr_scheduler.get_last_lr()[0]}")
                 predicted, loss = self.train(data, labels, pos)
                 self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
 
-            if not validate:
+            if skip_valid:
                 continue
 
             print(f"Done training. Starting validation for epoch {epoch}.")
@@ -272,16 +276,18 @@ def plot(predicted, labels, pos, save_dir: str = None):
 
 def main():
     parser = argparse.ArgumentParser()
+    network_choices = ['cohen', 'rinq']
+    parser.add_argument('-network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', action='store_true', default=False)
-    parser.add_argument('-workers', default=0, type=int)
+    parser.add_argument('-workers', '-num_workers', dest='num_workers', default=0, type=int)
+    parser.add_argument('-skip_valid', '-no_valid', dest='skip_valid', action='store_true', default=False)
     args = parser.parse_args()
 
-    debug = args.debug
-    num_workers = args.workers
-    config = Configuration("config.ini", debug)
+    config = Configuration(args.network, "config.ini", args.debug)
 
-    print(f"Debug mode is {'enabled' if debug else 'disabled'}.")
-    print(f"There are {num_workers} sub-process workers loading training data.")
+    print(f"Using {args.network} model.")
+    print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
+    print(f"There are {args.num_workers} sub-process workers loading training data.")
     print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}.")
 
     repo = git.Repo(search_parent_directories=True)
@@ -290,7 +296,11 @@ def main():
         import sys
         sys.exit(0)
 
-    model = CohenMLP()
+    if args.network == 'cohen':
+        model = CohenMLP()
+    else:
+        model = Rinq()
+
     optimiser = optim.Adam(model.parameters(), lr=config.lr)
     lr_scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=config.lr_step_size, gamma=config.lr_gamma)
     loss = nn.MSELoss()
@@ -301,12 +311,12 @@ def main():
                                 loss,
                                 config.total_epochs,
                                 config.batch_size,
-                                num_training_dataloader_workers=num_workers,
+                                num_training_dataloader_workers=args.num_workers,
                                 num_testing_dataloader_workers=1,
-                                debug=debug,
+                                debug=args.debug,
                                 limit_number_files=config.limit_number_files,
                                 limit_iterations=config.limit_iterations)
-    trainer.loop(config.validate)
+    trainer.loop(args.skip_valid)
 
 
 if __name__ == "__main__":
