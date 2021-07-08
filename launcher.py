@@ -168,25 +168,23 @@ class TrainingAlgorithm:
                 predicted, loss = self.train(data, labels, pos)
                 self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
 
-            if skip_valid:
-                continue
+            if not skip_valid:
+                print(f"Done training. Starting validation for epoch {epoch}.")
+                # Eval
+                validate_loader = torch.utils.data.DataLoader(validation_dataset,
+                                                              batch_size=1,
+                                                              collate_fn=ScanwiseDataset.collate_fn,
+                                                              shuffle=False,
+                                                              pin_memory=True,
+                                                              num_workers=self.num_testing_dataloader_workers)
+                validate_set = iter(validate_loader)
 
-            print(f"Done training. Starting validation for epoch {epoch}.")
-            # Eval
-            validate_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                          batch_size=1,
-                                                          collate_fn=ScanwiseDataset.collate_fn,
-                                                          shuffle=False,
-                                                          pin_memory=True,
-                                                          num_workers=self.num_testing_dataloader_workers)
-            validate_set = iter(validate_loader)
-
-            for current_iteration, (data, labels, pos) in enumerate(validate_set):
-                print(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
-                      f"{len(validate_loader)}")
-                data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-                predicted, loss = self.validate(data, labels, pos)
-                self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
+                for current_iteration, (data, labels, pos) in enumerate(validate_set):
+                    print(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
+                          f"{len(validate_loader)}")
+                    data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
+                    predicted, loss = self.validate(data, labels, pos)
+                    self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
 
             self.lr_scheduler.step()
             self.logger.log('learning_rate', self.lr_scheduler.get_last_lr())
