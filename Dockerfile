@@ -11,4 +11,4 @@ RUN apt-get update && \
 
 # Run the application:
 COPY . .
-ENTRYPOINT ["python", "launcher.py"]
+ENTRYPOINT ["python", "mrf_trainer.py"]

@@ -170,7 +170,6 @@ class TrainingAlgorithm:
 
             if not skip_valid:
                 print(f"Done training. Starting validation for epoch {epoch}.")
-                # Eval
                 validate_loader = torch.utils.data.DataLoader(validation_dataset,
                                                               batch_size=1,
                                                               collate_fn=ScanwiseDataset.collate_fn,
