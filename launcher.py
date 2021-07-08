@@ -4,7 +4,6 @@ import argparse
 import os
 
 import git
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,34 +14,9 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
+from networks import CohenMLP, Rinq
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
 from util import load_all_data_files
-
-
-class CohenMLP(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.input = nn.Linear(1000, 300)
-        self.tanh1 = nn.Tanh()
-        self.fc1 = nn.Linear(300, 300)
-        self.tanh2 = nn.Tanh()
-        self.fc2 = nn.Linear(300, 300)
-        self.sigmoid = nn.Sigmoid()
-        self.output = nn.Linear(300, 2)
-
-    def forward(self, fp):
-        x1 = self.input(fp)
-        x1 = self.tanh1(x1)
-        x1 = self.fc1(x1)
-        x1 = self.tanh2(x1)
-        x1 = self.fc2(x1)
-        x1 = self.sigmoid(x1)
-        x1 = self.output(x1)
-        return x1
-
-
-class Rinq(nn.Module):
-    ...
 
 
 class TrainingAlgorithm:
@@ -218,60 +192,6 @@ class TrainingAlgorithm:
             self.save(epoch)
             self.logger.on_epoch_end(epoch)
             print(f"Epoch {epoch} complete")
-
-
-def plot(predicted, labels, pos, save_dir: str = None):
-    """
-    :param predicted: The predicted t1 and t2 labels.
-    :param labels: The ground-truth t1 and t2 labels.
-    :param pos: The index position matrix for each t1 and t2 value.
-    :param save_dir: Optional argument. Saves the plots to that directory if not None.
-    """
-    print("Plotting")
-    predicted_t1, predicted_t2 = predicted.cpu().detach().numpy().transpose()
-    actual_t1, actual_t2 = labels.cpu().numpy().transpose()
-
-    x = (pos // 230).cpu().numpy().astype(int)
-    y = (pos % 230).cpu().numpy().astype(int)
-
-    predicted_t1_map, predicted_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
-    actual_t1_map, actual_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
-    predicted_t1_map[x, y] = predicted_t1
-    predicted_t2_map[x, y] = predicted_t2
-    actual_t1_map[x, y] = actual_t1
-    actual_t2_map[x, y] = actual_t2
-
-    plt.matshow(predicted_t1_map)
-    plt.title("Predicted T1")
-    plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-
-    plt.matshow(actual_t1_map)
-    plt.title("Actual T1")
-    plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-
-    plt.matshow(np.abs(actual_t1_map - predicted_t1_map))
-    plt.title("abs(predicted - actual) T1")
-    plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-
-    plt.matshow(predicted_t2_map)
-    plt.title("Predicted T2")
-    plt.clim(0, 300)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-
-    plt.matshow(actual_t2_map)
-    plt.title("Actual T2")
-    plt.clim(0, 300)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-
-    plt.matshow(np.abs(actual_t2_map - predicted_t2_map))
-    plt.title("abs(predicted - actual) T2")
-    plt.clim(0, 300)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-
-    plt.show()
 
 
 def main():

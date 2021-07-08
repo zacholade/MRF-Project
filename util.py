@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 def get_all_data_files(folder: str = "Train", *args, **kwargs):
@@ -50,3 +51,57 @@ def load_all_data_files(data_type: str = "Train", file_limit: int = -1):
         # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
 
     return data_files, label_files, np.asarray(file_lens)
+
+
+def plot(predicted, labels, pos, save_dir: str = None):
+    """
+    :param predicted: The predicted t1 and t2 labels.
+    :param labels: The ground-truth t1 and t2 labels.
+    :param pos: The index position matrix for each t1 and t2 value.
+    :param save_dir: Optional argument. Saves the plots to that directory if not None.
+    """
+    print("Plotting")
+    predicted_t1, predicted_t2 = predicted.cpu().detach().numpy().transpose()
+    actual_t1, actual_t2 = labels.cpu().numpy().transpose()
+
+    x = (pos // 230).cpu().numpy().astype(int)
+    y = (pos % 230).cpu().numpy().astype(int)
+
+    predicted_t1_map, predicted_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
+    actual_t1_map, actual_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
+    predicted_t1_map[x, y] = predicted_t1
+    predicted_t2_map[x, y] = predicted_t2
+    actual_t1_map[x, y] = actual_t1
+    actual_t2_map[x, y] = actual_t2
+
+    plt.matshow(predicted_t1_map)
+    plt.title("Predicted T1")
+    plt.clim(0, 3000)
+    plt.colorbar(shrink=0.8, label='milliseconds')
+
+    plt.matshow(actual_t1_map)
+    plt.title("Actual T1")
+    plt.clim(0, 3000)
+    plt.colorbar(shrink=0.8, label='milliseconds')
+
+    plt.matshow(np.abs(actual_t1_map - predicted_t1_map))
+    plt.title("abs(predicted - actual) T1")
+    plt.clim(0, 3000)
+    plt.colorbar(shrink=0.8, label='milliseconds')
+
+    plt.matshow(predicted_t2_map)
+    plt.title("Predicted T2")
+    plt.clim(0, 300)
+    plt.colorbar(shrink=0.8, label='milliseconds')
+
+    plt.matshow(actual_t2_map)
+    plt.title("Actual T2")
+    plt.clim(0, 300)
+    plt.colorbar(shrink=0.8, label='milliseconds')
+
+    plt.matshow(np.abs(actual_t2_map - predicted_t2_map))
+    plt.title("abs(predicted - actual) T2")
+    plt.clim(0, 300)
+    plt.colorbar(shrink=0.8, label='milliseconds')
+
+    plt.show()
