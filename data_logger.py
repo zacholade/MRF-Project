@@ -65,6 +65,9 @@ class DataLogger:
         for field, value in self._log.items():
             values.append(str(np.asarray(value).mean()))
 
+        print(", ".join(['epoch', *self._log.keys()]))
+        print(", ".join(values))
+
         with open(self.qualified_filename, 'a', newline='') as file:
             writer = csv.writer(file)
             if epoch == 1:  # First epoch. Write the csv header labels.
