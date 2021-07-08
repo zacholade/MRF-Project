@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
-from networks import CohenMLP, Rinq
+from networks import CohenMLP, OksuzLSTM
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
 from util import load_all_data_files
 
@@ -155,6 +155,7 @@ class TrainingAlgorithm:
             train_set = iter(train_loader)
             for current_iteration, (data, labels, pos) in enumerate(train_set):
                 data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
+                data = data.reshape((*data.shape, 1))
 
                 if self._should_break_early(current_iteration):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
@@ -196,7 +197,7 @@ class TrainingAlgorithm:
 
 def main():
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'rinq']
+    network_choices = ['cohen', 'oksuz_lstm']
     parser.add_argument('-network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', dest='num_workers', default=0, type=int)
@@ -218,8 +219,12 @@ def main():
 
     if args.network == 'cohen':
         model = CohenMLP()
+    elif args.network == 'oksuz_lstm':
+        model = OksuzLSTM()
     else:
-        model = Rinq()
+        import sys
+        print("Invalid model. Exiting...")
+        sys.exit(1)
 
     optimiser = optim.Adam(model.parameters(), lr=config.lr)
     lr_scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=config.lr_step_size, gamma=config.lr_gamma)
