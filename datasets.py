@@ -5,17 +5,16 @@ import torch.utils.data
 
 
 class PixelwiseDataset(torch.utils.data.Dataset):
-    def __init__(self, data, labels, file_lens, file_names, set_indices, transform: Callable = None):
+    def __init__(self, data, labels, file_lens, file_names, transform: Callable = None):
         super().__init__()
         self.transform = transform
 
         self.labels = labels
         self.data = data
-        self._file_lens = file_lens[set_indices]
-        self._file_names = [file_names[i] for i in set_indices]
-        self._cum_file_lens = np.cumsum(self._file_lens[set_indices])
-        self._num_total_pixels = np.sum(self._file_lens[set_indices])
-        self._set_indices = set_indices  # The random indices used to determine train/valid dataset
+        self._file_lens = file_lens
+        self._file_names = file_names
+        self._cum_file_lens = np.cumsum(self._file_lens)
+        self._num_total_pixels = np.sum(self._file_lens)
 
     def __len__(self):
         return self._num_total_pixels
@@ -24,8 +23,8 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         index = np.asarray(index)
         file_index = np.argmin((index[:, np.newaxis] // self._cum_file_lens), axis=1)
         pixel_index = index % (self._cum_file_lens[file_index - 1])
-        data = self.data[self._set_indices][file_index, pixel_index]
-        label = self.labels[self._set_indices][file_index, pixel_index]
+        data = self.data[file_index, pixel_index]
+        label = self.labels[file_index, pixel_index]
         t1, t2, pd, pos = label.transpose()
         label = np.stack([t1, t2, pd], axis=0).transpose()
 
