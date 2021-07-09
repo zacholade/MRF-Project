@@ -14,8 +14,8 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         self.data = data
         self._file_lens = file_lens[set_indices]
         self._file_names = [file_names[i] for i in set_indices]
-        self._cum_file_lens = np.cumsum(self._file_lens[set_indices])
-        self._num_total_pixels = np.sum(self._file_lens[set_indices])
+        self._cum_file_lens = np.cumsum(self._file_lens)
+        self._num_total_pixels = np.sum(self._file_lens)
         self._set_indices = set_indices  # The random indices used to determine train/valid dataset
         self.mmap = mmap
 
