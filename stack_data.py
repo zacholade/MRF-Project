@@ -1,6 +1,19 @@
 import numpy as np
-from util import get_all_data_files, load_all_data_files
 import pickle
+import os
+
+
+def get_all_data_files(folder: str = "Train"):
+    fingerprint_path = f"Data/MRF_maps/Data/{folder}/"
+    parameter_path = f"Data/MRF_maps/Labels/{folder}/"
+    fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
+    parameter_files = sorted([file for file in os.listdir(parameter_path) if not file.startswith(".")])
+    if len(fingerprint_files) != len(parameter_files):
+        raise RuntimeError("Differing data inside Test/Train folders!")
+
+    fingerprint_files = list(map(lambda file: f"{fingerprint_path}{file}", fingerprint_files))
+    parameter_files = list(map(lambda file: f"{parameter_path}{file}", parameter_files))
+    return fingerprint_files, parameter_files
 
 
 def refactor():
