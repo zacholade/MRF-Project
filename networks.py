@@ -23,7 +23,6 @@ class OksuzLSTM(nn.Module):
         super().__init__()
         self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
                            batch_first=True, bidirectional=bidirectional)
-        self.sig = nn.Sigmoid()
         self.fc = nn.Linear(in_features=hidden_size, out_features=2)
 
     def forward(self, x):
