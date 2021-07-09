@@ -151,9 +151,9 @@ class TrainingAlgorithm:
         set_indices = np.arange(len(file_names))
         np.random.shuffle(set_indices)
 
-        training_dataset = PixelwiseDataset(data, labels, file_lens, file_names, set_indices[:5],
+        training_dataset = PixelwiseDataset(data, labels, file_lens, file_names, set_indices[105:],
                                             transform=training_transforms, mmap=mmap)
-        validation_dataset = ScanwiseDataset(data, labels, file_lens, file_names, set_indices[5:],
+        validation_dataset = ScanwiseDataset(data, labels, file_lens, file_names, set_indices[:15],
                                              transform=validation_transforms, mmap=mmap)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
