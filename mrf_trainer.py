@@ -180,6 +180,7 @@ class TrainingAlgorithm:
                 validate_set = iter(validate_loader)
 
                 for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+                    print(file_name)
                     print(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
                           f"{len(validate_loader)}")
                     data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
