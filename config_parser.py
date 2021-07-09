@@ -9,7 +9,7 @@ config.read("config.ini")
 class Configuration:
     def __init__(self, network_name: str, filename: str, debug: bool):
         self.network_name = network_name
-        self._config = configparser.ConfigParser()
+        self._config = configparser.ConfigParser(inline_comment_prefixes='#')
         self._config.read(filename)
 
         self.debug = debug
@@ -35,16 +35,20 @@ class Configuration:
         return self._config.getfloat(f"{self.network_name}Hyperparameters", "lr_gamma")
 
     @property
-    def model_hidden_size(self) -> int:
-        return self._config.getint(f"{self.network_name}Hyperparameters", "model_hidden_size")
+    def lstm_input_size(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "lstm_input_size")
 
     @property
-    def model_num_layers(self) -> int:
-        return self._config.getint(f"{self.network_name}Hyperparameters", "model_num_layers")
+    def lstm_hidden_size(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "lstm_hidden_size")
 
     @property
-    def model_bidirectional(self) -> bool:
-        return self._config.getboolean(f"{self.network_name}Hyperparameters", "bidirectional")
+    def lstm_num_layers(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "lstm_num_layers")
+
+    @property
+    def lstm_bidirectional(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "lstm_bidirectional")
 
     @property
     def limit_iterations(self) -> int:

@@ -155,7 +155,6 @@ class TrainingAlgorithm:
             train_set = iter(train_loader)
             for current_iteration, (data, labels, pos) in enumerate(train_set):
                 data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-                data = data.reshape((*data.shape, 1))
                 if self._should_break_early(current_iteration):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
@@ -216,8 +215,8 @@ def main():
     if args.network == 'cohen':
         model = CohenMLP()
     elif args.network == 'oksuz_lstm':
-        model = OksuzLSTM(hidden_size=config.model_hidden_size, num_layers=config.model_num_layers,
-                          bidirectional=config.model_bidirectional)
+        model = OksuzLSTM(input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
+                          num_layers=config.lstm_num_layers, bidirectional=config.lstm_bidirectional)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
