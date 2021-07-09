@@ -21,14 +21,18 @@ class PixelwiseDataset(torch.utils.data.Dataset):
 
     def worker_init(self, i):
         if self.mmap:
+
             self.data = np.load("Data/data.npy", mmap_mode="r")
-            self.labels = np.load("Data/labels.npy", mmap_mode="r")
+            self.labels = np.load("Data/data.npy", mmap_mode="r")
 
     def __len__(self):
         return self._num_total_pixels
 
     def __getitem__(self, index):
         index = np.asarray(index)
+        print(self.labels[self._set_indices].shape)
+        import time
+        time.sleep(10)
         file_index = np.argmin((index[:, np.newaxis] // self._cum_file_lens), axis=1)
         pixel_index = index % (self._cum_file_lens[file_index - 1])
         data = self.data[self._set_indices][file_index, pixel_index]
@@ -64,7 +68,7 @@ class ScanwiseDataset(PixelwiseDataset):
         return data, labels, pos, file_name
 
     def __len__(self):
-        return len(self._file_names)
+        return len(self.data)
 
     @staticmethod
     def collate_fn(batch):
