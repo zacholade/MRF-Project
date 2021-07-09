@@ -151,9 +151,9 @@ class TrainingAlgorithm:
         set_indices = np.arange(len(file_names))
         np.random.shuffle(set_indices)
 
-        training_dataset = PixelwiseDataset(data, labels, file_lens, file_names, set_indices[:15],
+        training_dataset = PixelwiseDataset(data, labels, file_lens, file_names, set_indices[:5],
                                             transform=training_transforms, mmap=mmap)
-        validation_dataset = ScanwiseDataset(data, labels, file_lens, file_names, set_indices[105:],
+        validation_dataset = ScanwiseDataset(data, labels, file_lens, file_names, set_indices[5:],
                                              transform=validation_transforms, mmap=mmap)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
@@ -212,12 +212,14 @@ def main():
     network_choices = ['cohen', 'oksuz_lstm']
     parser.add_argument('-network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', action='store_true', default=False)
-    parser.add_argument('-workers', '-num_workers', dest='num_workers', default=0, type=int)
+    parser.add_argument('-workers', '-num_workers', dest='num_workers', default=1, type=int)
     parser.add_argument('-skip_valid', '-no_valid', dest='skip_valid', action='store_true', default=False)
     parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
+    parser.add_argument('-mmap', action='store_true', default=False)
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
+    args.num_workers = max(1, args.num_workers)  # At least 1 worker.
 
     config = Configuration(args.network, "config.ini", args.debug)
 
