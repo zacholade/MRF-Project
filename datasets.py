@@ -21,7 +21,6 @@ class PixelwiseDataset(torch.utils.data.Dataset):
 
     def worker_init(self, i):
         if self.mmap:
-
             self.data = np.load("Data/data.npy", mmap_mode="r")
             self.labels = np.load("Data/data.npy", mmap_mode="r")
 
@@ -33,7 +32,6 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         file_index = np.argmin((index[:, np.newaxis] // self._cum_file_lens), axis=1)
         pixel_index = index % (self._cum_file_lens[file_index - 1])
         data = self.data[self._set_indices][file_index, pixel_index]
-        print(self.labels[self._set_indices].shape)
         label = self.labels[self._set_indices][file_index, pixel_index]
         t1, t2, pd, pos = label.transpose()
         label = np.stack([t1, t2, pd], axis=0).transpose()
