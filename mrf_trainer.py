@@ -16,7 +16,7 @@ from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
 from networks import CohenMLP, OksuzLSTM
 from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
-from util import load_all_data_files
+from util import load_all_data_files, plot
 
 
 class TrainingAlgorithm:
@@ -31,6 +31,7 @@ class TrainingAlgorithm:
                  starting_epoch: int = 0,
                  num_training_dataloader_workers: int = 1,
                  num_testing_dataloader_workers: int = 1,
+                 plot_every: int = -1,
                  debug: bool = False,
                  limit_number_files: int = -1,
                  limit_iterations: int = -1
@@ -48,6 +49,7 @@ class TrainingAlgorithm:
         self.num_training_dataloader_workers = num_training_dataloader_workers
         self.num_testing_dataloader_workers = num_testing_dataloader_workers
 
+        self.plot_every = plot_every  # Save a reconstruction plot every n epochs.
         self.debug = debug
         self.limit_number_files = limit_number_files
         self.limit_iterations = limit_iterations
@@ -128,9 +130,6 @@ class TrainingAlgorithm:
         self.model.eval()
         predicted = self.model.forward(data)
         loss = self.loss(predicted, labels)
-        if self.debug:
-            pass
-            # plot(predicted, labels, pos)
         return predicted, loss
 
     def _should_break_early(self, current_iteration) -> bool:
@@ -142,10 +141,14 @@ class TrainingAlgorithm:
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
-        train_data, train_labels, train_file_lens = load_all_data_files("Train", file_limit=self.limit_number_files)
-        valid_data, valid_labels, valid_file_lens = load_all_data_files("Test", file_limit=self.limit_number_files)
-        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens, transform=training_transforms)
-        validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens, transform=validation_transforms)
+        train_data, train_labels, train_file_lens, train_file_names = load_all_data_files(
+            "Train", file_limit=self.limit_number_files)
+        valid_data, valid_labels, valid_file_lens, valid_file_names = load_all_data_files(
+            "Test", file_limit=self.limit_number_files)
+        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
+                                            train_file_names, transform=training_transforms)
+        validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
+                                             valid_file_names, transform=validation_transforms)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
             train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
@@ -176,12 +179,19 @@ class TrainingAlgorithm:
                                                               num_workers=self.num_testing_dataloader_workers)
                 validate_set = iter(validate_loader)
 
-                for current_iteration, (data, labels, pos) in enumerate(validate_set):
+                for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+                    print(file_name)
                     print(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
                           f"{len(validate_loader)}")
                     data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
                     predicted, loss = self.validate(data, labels, pos)
                     self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
+
+                    if self.plot_every > 0 and epoch % self.plot_every == 0:
+                        if not os.path.exists(f"{self.base_directory}/Plots"):
+                            os.mkdir(f"{self.base_directory}/Plots")
+                        plot(predicted, labels, pos, epoch,
+                             save_dir=f"{self.base_directory}/Plots/{file_name}")
 
             self.lr_scheduler.step()
             self.logger.log('learning_rate', self.lr_scheduler.get_last_lr())
@@ -197,7 +207,10 @@ def main():
     parser.add_argument('-debug', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', dest='num_workers', default=0, type=int)
     parser.add_argument('-skip_valid', '-no_valid', dest='skip_valid', action='store_true', default=False)
+    parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
+    parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
     args = parser.parse_args()
+    args.plot_every = 0 if args.no_plot else args.plot_every
 
     config = Configuration(args.network, "config.ini", args.debug)
 
@@ -234,6 +247,7 @@ def main():
                                 config.batch_size,
                                 num_training_dataloader_workers=args.num_workers,
                                 num_testing_dataloader_workers=1,
+                                plot_every=args.plot_every,
                                 debug=args.debug,
                                 limit_number_files=config.limit_number_files,
                                 limit_iterations=config.limit_iterations)

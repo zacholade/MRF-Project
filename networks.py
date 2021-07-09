@@ -32,5 +32,6 @@ class OksuzLSTM(nn.Module):
 
         lstm_out, (hn, _) = self.rnn(x)
         hn = hn.squeeze()
+        print(hn)
         fc_out = self.fc(hn.squeeze())
         return fc_out

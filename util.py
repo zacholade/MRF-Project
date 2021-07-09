@@ -50,17 +50,21 @@ def load_all_data_files(data_type: str = "Train", file_limit: int = -1):
         # If we cant stack them then we have to store them in a python list which wont let us index it.
         # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
 
-    return data_files, label_files, np.asarray(file_lens)
+    # Removes the path and the file extension from the file names. Left with just the literal file name.
+    file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_file_names)))
+    return data_files, label_files, np.asarray(file_lens), file_names
 
 
-def plot(predicted, labels, pos, save_dir: str = None):
+def plot(predicted, labels, pos, epoch: int, save_dir: str):
     """
     :param predicted: The predicted t1 and t2 labels.
     :param labels: The ground-truth t1 and t2 labels.
     :param pos: The index position matrix for each t1 and t2 value.
     :param save_dir: Optional argument. Saves the plots to that directory if not None.
     """
-    print("Plotting")
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+
     predicted_t1, predicted_t2 = predicted.cpu().detach().numpy().transpose()
     actual_t1, actual_t2 = labels.cpu().numpy().transpose()
 
@@ -78,30 +82,36 @@ def plot(predicted, labels, pos, save_dir: str = None):
     plt.title("Predicted T1")
     plt.clim(0, 3000)
     plt.colorbar(shrink=0.8, label='milliseconds')
+    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-t1.png")
 
     plt.matshow(actual_t1_map)
     plt.title("Actual T1")
     plt.clim(0, 3000)
     plt.colorbar(shrink=0.8, label='milliseconds')
+    plt.savefig(f"{save_dir}/epoch-{epoch}_t1.png")
 
     plt.matshow(np.abs(actual_t1_map - predicted_t1_map))
     plt.title("abs(predicted - actual) T1")
     plt.clim(0, 3000)
     plt.colorbar(shrink=0.8, label='milliseconds')
+    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-True-t1.png")
 
     plt.matshow(predicted_t2_map)
     plt.title("Predicted T2")
     plt.clim(0, 300)
     plt.colorbar(shrink=0.8, label='milliseconds')
+    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-t2.png")
 
     plt.matshow(actual_t2_map)
     plt.title("Actual T2")
     plt.clim(0, 300)
     plt.colorbar(shrink=0.8, label='milliseconds')
+    plt.savefig(f"{save_dir}/epoch-{epoch}_True-t2.png")
 
     plt.matshow(np.abs(actual_t2_map - predicted_t2_map))
     plt.title("abs(predicted - actual) T2")
     plt.clim(0, 300)
     plt.colorbar(shrink=0.8, label='milliseconds')
+    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-True-t2.png")
 
-    plt.show()
+    plt.close('all')
