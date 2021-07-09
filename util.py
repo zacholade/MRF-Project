@@ -18,16 +18,12 @@ def get_all_data_files(folder: str = "Train", *args, **kwargs):
     return fingerprint_files, parameter_files
 
 
-def load_all_data_files(mmap: bool = False):
+def load_all_data_files():
+    data = np.load("Data/data.npy")
+    labels = np.load("Data/labels.npy")
     file_lens = np.load("Data/file_lens.npy")
     with open("Data/file_names.pickle", "rb") as f:
         file_names = pickle.load(f)
-
-    if mmap:
-        return None, None, file_lens, file_names
-
-    data = np.load("Data/data.npy")
-    labels = np.load("Data/labels.npy")
 
     return data, labels, file_lens, file_names
 

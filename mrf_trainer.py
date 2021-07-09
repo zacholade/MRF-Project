@@ -146,19 +146,17 @@ class TrainingAlgorithm:
         # valid_data, valid_labels, valid_file_lens, valid_file_names = load_all_data_files(
         #     "Test", file_limit=self.limit_number_files)
 
-        mmap = True
-        data, labels, file_lens, file_names = load_all_data_files(mmap=mmap)
-        set_indices = np.arange(len(file_names))
-        np.random.shuffle(set_indices)
+        data, labels, file_lens, file_names = load_all_data_files()
+        num_files = len(file_names)
+        set_indices = np.random.shuffle(np.arange(num_files))
 
         training_dataset = PixelwiseDataset(data, labels, file_lens, file_names, set_indices[:15],
-                                            transform=training_transforms, mmap=mmap)
+                                            transform=training_transforms)
         validation_dataset = ScanwiseDataset(data, labels, file_lens, file_names, set_indices[105:],
-                                             transform=validation_transforms, mmap=mmap)
+                                             transform=validation_transforms)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
             train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
-                                      worker_init_fn=training_dataset.worker_init,
                                       num_workers=self.num_training_dataloader_workers,
                                       sampler=BatchSampler(RandomSampler(training_dataset),
                                                            batch_size=self.batch_size, drop_last=True))
@@ -181,7 +179,6 @@ class TrainingAlgorithm:
                 validate_loader = torch.utils.data.DataLoader(validation_dataset,
                                                               batch_size=1,
                                                               collate_fn=ScanwiseDataset.collate_fn,
-                                                              worker_init_fn=validation_dataset.worker_init,
                                                               shuffle=False,
                                                               pin_memory=True,
                                                               num_workers=self.num_testing_dataloader_workers)
