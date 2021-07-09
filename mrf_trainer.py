@@ -141,14 +141,19 @@ class TrainingAlgorithm:
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
-        train_data, train_labels, train_file_lens, train_file_names = load_all_data_files(
-            "Train", file_limit=self.limit_number_files)
-        valid_data, valid_labels, valid_file_lens, valid_file_names = load_all_data_files(
-            "Test", file_limit=self.limit_number_files)
-        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
-                                            train_file_names, transform=training_transforms)
-        validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
-                                             valid_file_names, transform=validation_transforms)
+        # train_data, train_labels, train_file_lens, train_file_names = load_all_data_files(
+        #     "Train", file_limit=self.limit_number_files)
+        # valid_data, valid_labels, valid_file_lens, valid_file_names = load_all_data_files(
+        #     "Test", file_limit=self.limit_number_files)
+
+        data, labels, file_lens, file_names = load_all_data_files()
+        num_files = len(file_names)
+        set_indices = np.random.shuffle(np.arange(num_files))
+
+        training_dataset = PixelwiseDataset(data, labels, file_lens, file_names, set_indices[:15],
+                                            transform=training_transforms)
+        validation_dataset = ScanwiseDataset(data, labels, file_lens, file_names, set_indices[105:],
+                                             transform=validation_transforms)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
             train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
