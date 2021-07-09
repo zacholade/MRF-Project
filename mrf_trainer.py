@@ -32,6 +32,7 @@ class TrainingAlgorithm:
                  num_training_dataloader_workers: int = 1,
                  num_testing_dataloader_workers: int = 1,
                  plot_every: int = -1,
+                 mmap: bool = False,
                  debug: bool = False,
                  limit_number_files: int = -1,
                  limit_iterations: int = -1
@@ -50,6 +51,7 @@ class TrainingAlgorithm:
         self.num_testing_dataloader_workers = num_testing_dataloader_workers
 
         self.plot_every = plot_every  # Save a reconstruction plot every n epochs.
+        self.mmap = mmap
         self.debug = debug
         self.limit_number_files = limit_number_files
         self.limit_iterations = limit_iterations
@@ -146,15 +148,14 @@ class TrainingAlgorithm:
         # valid_data, valid_labels, valid_file_lens, valid_file_names = load_all_data_files(
         #     "Test", file_limit=self.limit_number_files)
 
-        mmap = True
-        data, labels, file_lens, file_names = load_all_data_files(mmap=mmap)
+        data, labels, file_lens, file_names = load_all_data_files(mmap=self.mmap)
         set_indices = np.arange(len(file_names))
         np.random.shuffle(set_indices)
 
         training_dataset = PixelwiseDataset(data, labels, file_lens, file_names, set_indices[105:],
-                                            transform=training_transforms, mmap=mmap)
+                                            transform=training_transforms, mmap=self.mmap)
         validation_dataset = ScanwiseDataset(data, labels, file_lens, file_names, set_indices[:15],
-                                             transform=validation_transforms, mmap=mmap)
+                                             transform=validation_transforms, mmap=self.mmap)
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
             train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
@@ -257,6 +258,7 @@ def main():
                                 num_training_dataloader_workers=args.num_workers,
                                 num_testing_dataloader_workers=1,
                                 plot_every=args.plot_every,
+                                mmap=args.mmap,
                                 debug=args.debug,
                                 limit_number_files=config.limit_number_files,
                                 limit_iterations=config.limit_iterations)
