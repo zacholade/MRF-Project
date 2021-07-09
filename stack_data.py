@@ -38,16 +38,16 @@ def refactor():
     # Removes the path and the file extension from the file names. Left with just the literal file name.
     file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_file_names)))
 
-    with open("../Data/data.npy", "wb") as f:
+    with open("Data/data.npy", "wb") as f:
         np.save(f, data_files)
 
-    with open("../Data/labels.npy", "wb") as f:
+    with open("Data/labels.npy", "wb") as f:
         np.save(f, label_files)
 
-    with open("../Data/file_lens.npy", "wb") as f:
+    with open("Data/file_lens.npy", "wb") as f:
         np.save(f, np.asarray(file_lens))
 
-    with open("../Data/file_names.pickle", "wb") as f:
+    with open("Data/file_names.pickle", "wb") as f:
         pickle.dump(file_names, f)
 
     return data_files, label_files, np.asarray(file_lens), file_names
