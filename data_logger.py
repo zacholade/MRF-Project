@@ -63,7 +63,7 @@ class DataLogger:
 
         values = [str(epoch)]
         for field, value in self._log.items():
-            values.append(str(np.asarray(value).mean()))
+            values.append(str(np.mean(value)))
 
         print(", ".join(['epoch', *self._log.keys()]))
         print(", ".join(values))
