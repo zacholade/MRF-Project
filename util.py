@@ -45,7 +45,7 @@ def load_all_data_files(file_limit: int = -1):
         num_test += 1
         num_train -= 1
 
-    train_indices, test_indices = shuffle_indices[num_train:], shuffle_indices[:num_test]
+    train_indices, test_indices = shuffle_indices[-num_train:], shuffle_indices[:num_test]
     train_data_file_names = [data_file_names[i] for i in train_indices]
     train_label_file_names = [label_file_names[i] for i in train_indices]
     test_data_file_names = [data_file_names[i] for i in test_indices]
