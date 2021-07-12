@@ -1,3 +1,4 @@
+import torch
 from torch import nn as nn
 
 
@@ -31,7 +32,11 @@ class OksuzLSTM(nn.Module):
         x = x.reshape(batch_size, -1, self.rnn.input_size)
 
         lstm_out, (hn, _) = self.rnn(x)
-        hn = hn.squeeze()
         print(hn)
+        print(hn.shape)
+        with torch.no_grad():
+            hn = hn.squeeze()
+        print(hn)
+        print(hn.shape)
         fc_out = self.fc(hn.squeeze())
         return fc_out

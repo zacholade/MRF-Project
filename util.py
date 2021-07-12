@@ -38,7 +38,7 @@ def load_all_data_files(file_limit: int = -1):
 
     shuffle_indices = np.arange(num_files)
     np.random.shuffle(shuffle_indices)
-    num_train = num_files // 24 * 21  # With 120 files splits train/test into 105 and 15 respectfully
+    num_train = int(num_files / 24 * 21)  # With 120 files splits train/test into 105 and 15 respectfully
     num_test = num_files - num_train
 
     if num_test == 0 and num_train > 1:
