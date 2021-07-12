@@ -4,21 +4,27 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 
-def get_all_data_files(folder: str = "Train", *args, **kwargs):
-    fingerprint_path = f"Data/MRF_maps/Data/{folder}/"
-    parameter_path = f"Data/MRF_maps/Labels/{folder}/"
+def get_all_data_files():
+    fingerprint_path = f"Data/Data/"
+    label_path = f"Data/Labels/"
     fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
-    parameter_files = sorted([file for file in os.listdir(parameter_path) if not file.startswith(".")])
-    if len(fingerprint_files) != len(parameter_files):
-        raise RuntimeError("Differing data inside Test/Train folders!")
+    label_files = sorted([file for file in os.listdir(label_path) if not file.startswith(".")])
+    if len(fingerprint_files) != len(label_files):
+        raise RuntimeError("Differing data inside Data/Label folders!")
+
+    # Shuffle two lists the same way.
+    to_shuffle = list(zip(fingerprint_files, label_files))
+    np.random.shuffle(to_shuffle)
+    fingerprint_files, label_files = zip(*to_shuffle)
 
     fingerprint_files = list(map(lambda file: f"{fingerprint_path}{file}", fingerprint_files))
-    parameter_files = list(map(lambda file: f"{parameter_path}{file}", parameter_files))
-    return fingerprint_files, parameter_files
+    label_files = list(map(lambda file: f"{label_path}{file}", label_files))
+
+    return fingerprint_files, label_files
 
 
-def load_all_data_files(data_type: str = "Train", file_limit: int = -1):
-    data_file_names, label_file_names = get_all_data_files(data_type)
+def load_all_data_files(file_limit: int = -1):
+    data_file_names, label_file_names = get_all_data_files()
 
     if file_limit > 0:
         # If we want to limit number of files open (only for memory saving purposes (testing)).
@@ -26,33 +32,53 @@ def load_all_data_files(data_type: str = "Train", file_limit: int = -1):
         label_file_names = label_file_names[:file_limit]
 
     # Find the max shape so we can apply padding in the following for loop instead of a separate for loop.
-    max_size = max([np.load(label_file_name, mmap_mode='r').shape[0] for label_file_name in label_file_names])
+    files = [np.load(label_file_name, mmap_mode='r').shape[0] for label_file_name in label_file_names]
+    max_size = max(files)
+    num_files = len(files)
 
-    data_files = np.zeros((len(data_file_names), max_size, 1000))
-    label_files = np.zeros((len(label_file_names), max_size, 4))
-    file_lens = []
-    for i, (data_file_name, label_file_name) in enumerate(zip(data_file_names, label_file_names)):
-        print(f"Loading {data_type}ing file {i+1} / {len(label_file_names)}.")
-        data_file = np.load(data_file_name)
-        label_file = np.load(label_file_name)
-        data_shape = (max_size, data_file.shape[1])
-        label_shape = (max_size, label_file.shape[1])
-        padded_data_file = np.zeros(data_shape)
-        padded_label_file = np.zeros(label_shape)
-        padded_data_file[:data_file.shape[0], :data_file.shape[1]] = data_file
-        padded_label_file[:label_file.shape[0], :label_file.shape[1]] = label_file
-        file_lens.append(data_file.shape[0])
-        data_files[i] = padded_data_file
-        label_files[i] = padded_label_file
-        # We want to apply padding to all the fingerprints so that they can be stacked in a big numpy array.
-        # Why? Because when we pass this data to our PixelwiseDataset/Scanwise etc, we want to use a batch sampler
-        # so that we can sample x amount of indices at once, instead of calling __getitem__ x amount of times (slow).
-        # If we cant stack them then we have to store them in a python list which wont let us index it.
-        # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
+    shuffle_indices = np.arange(num_files)
+    np.random.shuffle(shuffle_indices)
+    num_train = num_files // 24 * 21  # With 120 files splits train/test into 105 and 15 respectfully
+    num_test = num_files - num_train
 
-    # Removes the path and the file extension from the file names. Left with just the literal file name.
-    file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_file_names)))
-    return data_files, label_files, np.asarray(file_lens), file_names
+    if num_test == 0 and num_train > 1:
+        num_test += 1
+        num_train -= 1
+
+    train_indices, test_indices = shuffle_indices[num_train:], shuffle_indices[:num_test]
+    train_data_file_names = [data_file_names[i] for i in train_indices]
+    train_label_file_names = [label_file_names[i] for i in train_indices]
+    test_data_file_names = [data_file_names[i] for i in test_indices]
+    test_label_file_names = [label_file_names[i] for i in test_indices]
+
+    def gen_data(data_names, label_names):
+        data_files = np.zeros((len(data_names), max_size, 1000))
+        label_files = np.zeros((len(label_names), max_size, 4))
+        file_lens = []
+        for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
+            print(f"Loading file {i+1} / {len(label_names)}.")
+            data_file = np.load(data_file_name)
+            label_file = np.load(label_file_name)
+            data_shape = (max_size, data_file.shape[1])
+            label_shape = (max_size, label_file.shape[1])
+            padded_data_file = np.zeros(data_shape)
+            padded_label_file = np.zeros(label_shape)
+            padded_data_file[:data_file.shape[0], :data_file.shape[1]] = data_file
+            padded_label_file[:label_file.shape[0], :label_file.shape[1]] = label_file
+            file_lens.append(data_file.shape[0])
+            data_files[i] = padded_data_file
+            label_files[i] = padded_label_file
+            # We want to apply padding to all the fingerprints so that they can be stacked in a big numpy array.
+            # Why? Because when we pass this data to our PixelwiseDataset/Scanwise etc, we want to use a batch sampler
+            # so that we can sample x amount of indices at once, instead of calling __getitem__ x amount of times (slow).
+            # If we cant stack them then we have to store them in a python list which wont let us index it.
+            # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
+
+        # Removes the path and the file extension from the file names. Left with just the literal file name.
+        file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))
+        return data_files, label_files, np.asarray(file_lens), file_names
+
+    return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)
 
 
 def plot(predicted, labels, pos, epoch: int, save_dir: str):

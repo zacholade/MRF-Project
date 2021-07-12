@@ -141,10 +141,10 @@ class TrainingAlgorithm:
         validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
         training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
 
-        train_data, train_labels, train_file_lens, train_file_names = load_all_data_files(
-            "Train", file_limit=self.limit_number_files)
-        valid_data, valid_labels, valid_file_lens, valid_file_names = load_all_data_files(
-            "Test", file_limit=self.limit_number_files)
+        (train_data, train_labels, train_file_lens, train_file_names),\
+            (valid_data, valid_labels, valid_file_lens, valid_file_names) = load_all_data_files(
+            file_limit=self.limit_number_files)
+
         training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
                                             train_file_names, transform=training_transforms)
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
@@ -203,10 +203,10 @@ class TrainingAlgorithm:
 def main():
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_lstm']
-    parser.add_argument('-network', choices=network_choices, type=str.lower, required=True)
-    parser.add_argument('-debug', action='store_true', default=False)
-    parser.add_argument('-workers', '-num_workers', dest='num_workers', default=0, type=int)
-    parser.add_argument('-skip_valid', '-no_valid', dest='skip_valid', action='store_true', default=False)
+    parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
+    parser.add_argument('-debug', '-d', action='store_true', default=False)
+    parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
+    parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)
     parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
     args = parser.parse_args()
