@@ -26,7 +26,7 @@ class OksuzLSTM(nn.Module):
         super().__init__()
         self.rnn = nn.LSTM(input_size=1, hidden_size=hidden_size, num_layers=num_layers,
                            batch_first=True, bidirectional=bidirectional)
-        self.fc1 = nn.Linear(in_features=hidden_size * 50, out_features=2)
+        self.fc1 = nn.Linear(in_features=hidden_size * 20, out_features=2)
 
     def forward(self, x):
         # for i in range(100):
@@ -38,7 +38,7 @@ class OksuzLSTM(nn.Module):
         #     plt.show()
 
         batch_size = x.shape[0]
-        x = x.view(batch_size * 50, 20, 1)
+        x = x.view(batch_size * 20, 50, 1)
         lstm_out, (hn, _) = self.rnn(x)
         hn = hn.view(batch_size, -1)
         # lstm_out = lstm_out.view(batch_size, -1)
