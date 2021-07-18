@@ -22,7 +22,7 @@ def brain_dict_true(eng,
 
     if pd == 0.:
         # If t1 and t2 are both 0 then we just return an empty fingerprint.
-        return np.full(len(rf_pulses), 0.)
+        return np.full(len(rf_pulses), 0.), 0
 
     # The default t1s and t2s values are the default values specified in CoverBLIP for dict generation..
     t1s = t1s if t1s is not None else [*range(100, 2000, 40), *range(2200, 6200, 200)]
@@ -45,4 +45,4 @@ def brain_dict_true(eng,
     look_up_table = np.asarray(look_up_table)
 
     # Apply proton density scaling
-    return d * pd
+    return d * pd, dict_norm

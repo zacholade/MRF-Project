@@ -25,7 +25,7 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         pixel_index = index % (self._cum_file_lens[file_index - 1])
         data = self.data[file_index, pixel_index]
         label = self.labels[file_index, pixel_index]
-        t1, t2, pd, pos = label.transpose()
+        t1, t2, pd, pos, _ = label.transpose()
         label = np.stack([t1, t2, pd], axis=0).transpose()
 
         if self.transform:

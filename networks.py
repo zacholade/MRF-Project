@@ -29,13 +29,13 @@ class OksuzLSTM(nn.Module):
         self.fc1 = nn.Linear(in_features=hidden_size * 20, out_features=2)
 
     def forward(self, x):
-        # for i in range(100):
-        #     x_ = np.arange(1000)
-        #     print(x.shape)
-        #     y = x[i].detach().cpu().numpy()
-        #     import matplotlib.pyplot as plt
-        #     plt.scatter(x_, y, s=1)
-        #     plt.show()
+        for i in range(100):
+            x_ = np.arange(1000)
+            print(x.shape)
+            y = x[i].detach().cpu().numpy()
+            import matplotlib.pyplot as plt
+            plt.scatter(x_, y, s=1)
+            plt.show()
 
         batch_size = x.shape[0]
         x = x.view(batch_size * 20, 50, 1)

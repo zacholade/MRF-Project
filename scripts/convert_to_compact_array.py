@@ -28,7 +28,7 @@ import sys
 import numpy
 numpy.set_printoptions(threshold=sys.maxsize)
 
-indices = np.arange(0, 230 * 230).reshape(230, 230)
+indices = np.arange(230 * 230).reshape(230, 230)
 for data_file_name, label_file_name in zip(data_file_names, label_file_names):
     data_file = np.load(data_file_name)
     label_file = np.load(label_file_name)

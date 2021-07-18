@@ -65,7 +65,7 @@ def gen_and_save_fingerprint_map(file_tuple):
             pixel_counter += 1
             if pixel_counter % 1000 == 0:
                 print(f"Generating fingerprint for {parameter_file}. Pixel {pixel_counter} out of {230 * 230}.")
-            fingerprint = brain_dict_true(eng, [t1_p], [t2_p], pd_p, off, rf_pulses)
+            fingerprint, dict_norm = brain_dict_true(eng, [t1_p], [t2_p], pd_p, off, rf_pulses)
             fingerprint_map[x].append(fingerprint)
 
     fingerprint_map = np.array(fingerprint_map).reshape((230, 230, len(rf_pulses)))
