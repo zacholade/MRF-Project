@@ -56,15 +56,12 @@ class NoiseTransform(BaseTransform):
 
 class ApplyPD(BaseTransform):
     """
-    Undoes the incorrect PD scaling I applied.
-    Then undoes the normalisation before scaling the fingerprints by proton density.
+    Undoes the normalisation before scaling the fingerprints by proton density.
     Finally it re-normalises them such that the sum of squares == 1.
     """
     def __call__(self, sample):
         data, label, pos = sample
         t1, t2, pd, dn = label
-        # Unapply incorrect PD scaling in our dataset (We mistakenly applied it to the already normalised value).
-        data /= pd[:, np.newaxis]
         # old_sum_squares = np.sum(data**2, axis=1)  # To asset if sum of squares == 1
 
         data *= dn[:, np.newaxis]  # Un-normalise data by the dict norm value per pixel
