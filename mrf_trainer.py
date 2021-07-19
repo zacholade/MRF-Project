@@ -15,7 +15,7 @@ from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
 from networks import CohenMLP, OksuzLSTM
-from transforms import NoiseTransform, ScaleLabels, ExcludeProtonDensity
+from transforms import NoiseTransform, ScaleLabels, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot
 
 
@@ -138,8 +138,8 @@ class TrainingAlgorithm:
                current_iteration != 0
 
     def loop(self, skip_valid):
-        validation_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000)])
-        training_transforms = transforms.Compose([ExcludeProtonDensity(), ScaleLabels(1000), NoiseTransform(0, 0.01)])
+        validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
+        training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
         (train_data, train_labels, train_file_lens, train_file_names),\
             (valid_data, valid_labels, valid_file_lens, valid_file_names) = load_all_data_files(

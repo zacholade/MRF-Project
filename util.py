@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 
 
 def get_all_data_files():
-    fingerprint_path = f"Data/Output/Data/"
-    label_path = f"Data/Output/Labels/"
+    fingerprint_path = f"Data/Data/"
+    label_path = f"Data/Labels/"
     fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
     label_files = sorted([file for file in os.listdir(label_path) if not file.startswith(".")])
     if len(fingerprint_files) != len(label_files):
@@ -139,5 +139,5 @@ def plot(predicted, labels, pos, epoch: int, save_dir: str):
     plt.clim(0, 300)
     plt.colorbar(shrink=0.8, label='milliseconds')
     plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-True-t2.png")
-
+    plt.show()
     plt.close('all')

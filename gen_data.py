@@ -9,6 +9,22 @@ import matlab.engine
 import numpy as np
 
 from scripts.brain_dict_true import brain_dict_true
+import logging
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+default_logging_format = ''.join([
+    "[",
+    "%(asctime)s ",
+    "%(levelname)-8s ",
+    "%(filename)-15s:",
+    "%(lineno)3s - ",
+    "%(funcName)-20s ",
+    "] ",
+    "%(message)s",
+])
+
+logging.basicConfig(format=default_logging_format)
 
 
 def get_all_filenames() -> List[str]:
@@ -21,11 +37,11 @@ def gen_fp_map(filename):
     with open("Data/Labels/" + filename, "rb") as f:
         scan = np.load(f)
 
-    if os.path.isfile("Data/Data/" + filename):
-        print(f"Fingerprint already exists for {filename}.")
+    if os.path.isfile("Data/Output/Data/" + filename):
+        logger.info(f"Fingerprint already exists for {filename}.")
         return None, None
 
-    print(f"No fingerprint found for: {filename}. Generating fingerprint.")
+    logger.info(f"No fingerprint found for: {filename}. Generating fingerprint.")
     scan = np.transpose(scan, axes=(2, 0, 1))
     # Multiply by 1000 to convert to 1000
     t1, t2, pd = scan[0] * 1000, scan[1] * 1000, scan[2]
@@ -44,7 +60,7 @@ def gen_fp_map(filename):
             t1_p, t2_p, pd_p = t1[x][y], t2[x][y], pd[x][y]
             pixel_counter += 1
             if pixel_counter % 1000 == 0:
-                print(f"Generating fingerprint for {filename}. Pixel {pixel_counter} out of {230 * 230}.")
+                logger.info(f"Generating fingerprint for {filename}. Pixel {pixel_counter} out of {230 * 230}.")
             fingerprint, dict_norm = brain_dict_true(eng, [t1_p], [t2_p], pd_p, off, rf_pulses)
             # fingerprint, dict_norm = np.zeros(1000), 0
             fingerprint_map[x].append(fingerprint)
@@ -90,6 +106,9 @@ def convert_to_compact_array(data, label):
 
 def make_data(filename):
     data, label = gen_fp_map(filename)
+    if label is None or data is None:
+        return
+
     data, label = convert_to_compact_array(data, label)
     with open("Data/Output/Data/" + filename, "wb") as f:
         np.save(f, data)
@@ -99,7 +118,7 @@ def make_data(filename):
 
 
 if __name__ == "__main__":
-    pool = multiprocessing.Pool(processes=10)
+    pool = multiprocessing.Pool(processes=6)
     try:
         maps_to_generate = get_all_filenames()
         pool.map(make_data, maps_to_generate)

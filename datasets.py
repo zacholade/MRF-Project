@@ -25,13 +25,13 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         pixel_index = index % (self._cum_file_lens[file_index - 1])
         data = self.data[file_index, pixel_index]
         label = self.labels[file_index, pixel_index]
-        t1, t2, pd, pos, _ = label.transpose()
-        label = np.stack([t1, t2, pd], axis=0).transpose()
+        t1, t2, pd, pos, dn = label.transpose()
+        label = np.stack([t1, t2, pd, dn], axis=0)
 
         if self.transform:
             data, label, pos = self.transform((data, label, pos))
 
-        return data, label, pos
+        return data, label.transpose(), pos
 
     @staticmethod
     def collate_fn(batch):
@@ -47,13 +47,13 @@ class ScanwiseDataset(PixelwiseDataset):
         data = self.data[index][:self._file_lens[index]]  # second index just removes the padding applied.
         labels = self.labels[index][:self._file_lens[index]]
         file_name = self._file_names[index]
-        t1, t2, pd, pos = labels.transpose()
-        labels = np.stack([t1, t2, pd], axis=0).transpose()
+        t1, t2, pd, pos, dn = labels.transpose()
+        labels = np.stack([t1, t2, pd, dn], axis=0)
 
         if self.transform:
             data, labels, pos = self.transform((data, labels, pos))
 
-        return data, labels, pos, file_name
+        return data, labels.transpose(), pos, file_name
 
     def __len__(self):
         return len(self.data)
