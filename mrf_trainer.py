@@ -195,7 +195,9 @@ class TrainingAlgorithm:
                         # join to it. When process is suspended, memory is forcibly released.
                         p = multiprocessing.Process(target=plot,
                                                     args=(predicted.cpu().detach().numpy(),
-                                                          labels.cpu().numpy(), pos, epoch),
+                                                          labels.cpu().numpy(),
+                                                          pos.cpu().numpy().astype(int),
+                                                          epoch),
                                                     kwargs={"save_dir": f"{self.base_directory}/Plots/{file_name}"})
                         p.start()
                         p.join()
