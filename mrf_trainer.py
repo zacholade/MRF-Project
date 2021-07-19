@@ -15,8 +15,9 @@ from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
 from networks import CohenMLP, OksuzLSTM
-from transforms import NoiseTransform, ScaleLabels, OnlyT1T2, ApplyPD
+from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot
+import multiprocessing
 
 
 class TrainingAlgorithm:
@@ -190,8 +191,14 @@ class TrainingAlgorithm:
                     if self.plot_every > 0 and epoch % self.plot_every == 0:
                         if not os.path.exists(f"{self.base_directory}/Plots"):
                             os.mkdir(f"{self.base_directory}/Plots")
-                        plot(predicted, labels, pos, epoch,
-                             save_dir=f"{self.base_directory}/Plots/{file_name}")
+                        # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
+                        # join to it. When process is suspended, memory is forcibly released.
+                        p = multiprocessing.Process(target=plot,
+                                                    args=(predicted.cpu().detach().numpy(),
+                                                          labels.cpu().numpy(), pos, epoch),
+                                                    kwargs={"save_dir": f"{self.base_directory}/Plots/{file_name}"})
+                        p.start()
+                        p.join()
 
             self.lr_scheduler.step()
             self.logger.log('learning_rate', self.lr_scheduler.get_last_lr())

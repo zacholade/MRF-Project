@@ -2,6 +2,8 @@ import os
 
 import numpy as np
 from matplotlib import pyplot as plt
+import gc
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def get_all_data_files():
@@ -88,11 +90,12 @@ def plot(predicted, labels, pos, epoch: int, save_dir: str):
     :param pos: The index position matrix for each t1 and t2 value.
     :param save_dir: Optional argument. Saves the plots to that directory if not None.
     """
+    print('plotting')
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-    predicted_t1, predicted_t2 = predicted.cpu().detach().numpy().transpose()
-    actual_t1, actual_t2 = labels.cpu().numpy().transpose()
+    predicted_t1, predicted_t2 = predicted.transpose()
+    actual_t1, actual_t2 = labels.transpose()
 
     x = (pos // 230).cpu().numpy().astype(int)
     y = (pos % 230).cpu().numpy().astype(int)
@@ -104,40 +107,59 @@ def plot(predicted, labels, pos, epoch: int, save_dir: str):
     actual_t1_map[x, y] = actual_t1
     actual_t2_map[x, y] = actual_t2
 
-    plt.matshow(predicted_t1_map)
-    plt.title("Predicted T1")
-    plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-T1.png")
+    fig, ax = plt.subplots(2, 3, figsize=(12, 7))
+    fig.subplots_adjust(wspace=0.3)
 
-    plt.matshow(actual_t1_map)
-    plt.title("Actual T1")
-    plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-    plt.savefig(f"{save_dir}/epoch-{epoch}_True-T1.png")
+    im = ax[0][0].matshow(actual_t1_map, vmin=0, vmax=3000)
+    ax[0][0].title.set_text("True T1")
+    ax[0][0].set_xticks([]), ax[0][0].set_yticks([])
+    # https://stackoverflow.com/questions/23876588/matplotlib-colorbar-in-each-subplot
+    divider = make_axes_locatable(ax[0][0])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax=cax, shrink=0.8)
 
-    plt.matshow(np.abs(actual_t1_map - predicted_t1_map))
-    plt.title("abs(predicted - actual) T1")
-    plt.clim(0, 3000)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-True-T1.png")
+    im = ax[0][1].matshow(predicted_t1_map, vmin=0, vmax=3000)
+    ax[0][1].title.set_text("Predicted T1")
+    ax[0][1].set_xticks([]), ax[0][1].set_yticks([])
+    divider = make_axes_locatable(ax[0][1])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax=cax, shrink=0.8)
 
-    plt.matshow(predicted_t2_map)
-    plt.title("Predicted T2")
-    plt.clim(0, 300)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-T2.png")
+    im = ax[0][2].matshow(np.abs(actual_t1_map - predicted_t1_map), vmin=0, vmax=3000)
+    ax[0][2].title.set_text("abs(predicted - true) T1")
+    ax[0][2].set_xticks([]), ax[0][2].set_yticks([])
+    divider = make_axes_locatable(ax[0][2])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax=cax, shrink=0.8)
 
-    plt.matshow(actual_t2_map)
-    plt.title("Actual T2")
-    plt.clim(0, 300)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-    plt.savefig(f"{save_dir}/epoch-{epoch}_True-T2.png")
+    im = ax[1][0].matshow(actual_t2_map, vmin=0, vmax=300)
+    ax[1][0].title.set_text("True T2")
+    ax[1][0].set_xticks([]), ax[1][0].set_yticks([])
+    divider = make_axes_locatable(ax[1][0])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax=cax, shrink=0.8)
 
-    plt.matshow(np.abs(actual_t2_map - predicted_t2_map))
-    plt.title("abs(predicted - actual) T2")
-    plt.clim(0, 300)
-    plt.colorbar(shrink=0.8, label='milliseconds')
-    plt.savefig(f"{save_dir}/epoch-{epoch}_Pred-True-T2.png")
+    im = ax[1][1].matshow(predicted_t2_map, vmin=0, vmax=300)
+    ax[1][1].title.set_text("Predicted T2")
+    ax[1][1].set_xticks([]), ax[1][1].set_yticks([])
+    divider = make_axes_locatable(ax[1][1])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax=cax, shrink=0.8)
 
+    im = ax[1][2].matshow(np.abs(actual_t2_map - predicted_t2_map), vmin=0, vmax=300)
+    ax[1][2].title.set_text("abs(predicted - actual) T2")
+    ax[1][2].set_xticks([]), ax[1][2].set_yticks([])
+    divider = make_axes_locatable(ax[1][2])
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    fig.colorbar(im, cax=cax, shrink=0.8)
+
+    plt.savefig(f"{save_dir}/epoch-{epoch}")
+
+    # Clear the current axes.
+    plt.cla()
+    # Clear the current figure.
+    plt.clf()
+    # Closes all the figure windows.
     plt.close('all')
+    plt.close(fig)
+    gc.collect()
