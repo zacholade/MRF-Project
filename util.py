@@ -90,7 +90,6 @@ def plot(predicted, labels, pos, epoch: int, save_dir: str):
     :param pos: The index position matrix for each t1 and t2 value.
     :param save_dir: Optional argument. Saves the plots to that directory if not None.
     """
-    print('plotting')
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 

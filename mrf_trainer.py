@@ -17,7 +17,7 @@ from datasets import PixelwiseDataset, ScanwiseDataset
 from networks import CohenMLP, OksuzLSTM
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot
-import multiprocessing
+from multiprocessing import Process
 
 
 class TrainingAlgorithm:
@@ -181,7 +181,6 @@ class TrainingAlgorithm:
                 validate_set = iter(validate_loader)
 
                 for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
-                    print(file_name)
                     print(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
                           f"{len(validate_loader)}")
                     data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
@@ -193,12 +192,12 @@ class TrainingAlgorithm:
                             os.mkdir(f"{self.base_directory}/Plots")
                         # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
                         # join to it. When process is suspended, memory is forcibly released.
-                        p = multiprocessing.Process(target=plot,
-                                                    args=(predicted.cpu().detach().numpy(),
-                                                          labels.cpu().numpy(),
-                                                          pos.cpu().numpy().astype(int),
-                                                          epoch),
-                                                    kwargs={"save_dir": f"{self.base_directory}/Plots/{file_name}"})
+                        p = Process(target=plot,
+                                    args=(predicted.cpu().detach().numpy(),
+                                          labels.cpu().numpy(),
+                                          pos.cpu().numpy().astype(int),
+                                          epoch),
+                                    kwargs={"save_dir": f"{self.base_directory}/Plots/{file_name}"})
                         p.start()
                         p.join()
 
