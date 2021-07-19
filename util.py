@@ -97,8 +97,8 @@ def plot(predicted, labels, pos, epoch: int, save_dir: str):
     predicted_t1, predicted_t2 = predicted.transpose()
     actual_t1, actual_t2 = labels.transpose()
 
-    x = (pos // 230).cpu().numpy().astype(int)
-    y = (pos % 230).cpu().numpy().astype(int)
+    x = pos // 230
+    y = pos % 230
 
     predicted_t1_map, predicted_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
     actual_t1_map, actual_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
