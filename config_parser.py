@@ -15,6 +15,10 @@ class Configuration:
         self.debug = debug
 
     @property
+    def seq_len(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "seq_len")
+
+    @property
     def total_epochs(self) -> int:
         return self._config.getint(f"{self.network_name}Hyperparameters", "total_epochs")
 

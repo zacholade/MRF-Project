@@ -219,7 +219,6 @@ def main():
     parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)
     parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
-    parser.add_argument('-seq_len', '-seqlen', '-fp_len', dest='seq_len', default=1000, type=int)
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
 
@@ -229,7 +228,7 @@ def main():
     print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
     print(f"There are {args.num_workers} sub-process workers loading training data.")
     print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}.")
-    print(f"Using {args.seq_len} dimensional fingerprints.")
+    print(f"Using {config.seq_len} dimensional fingerprints.")
 
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
@@ -238,10 +237,11 @@ def main():
         sys.exit(0)
 
     if args.network == 'cohen':
-        model = CohenMLP(seq_len=args.seq_len)
+        model = CohenMLP(seq_len=config.seq_len)
     elif args.network == 'oksuz_lstm':
-        model = OksuzLSTM(input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size, seq_len=args.seq_len,
-                          num_layers=config.lstm_num_layers, bidirectional=config.lstm_bidirectional)
+        model = OksuzLSTM(input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
+                          seq_len=config.seq_len, num_layers=config.lstm_num_layers,
+                          bidirectional=config.lstm_bidirectional)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
@@ -257,7 +257,7 @@ def main():
                                 loss,
                                 config.total_epochs,
                                 config.batch_size,
-                                seq_len=args.seq_len,
+                                seq_len=config.seq_len,
                                 num_training_dataloader_workers=args.num_workers,
                                 num_testing_dataloader_workers=1,
                                 plot_every=args.plot_every,
