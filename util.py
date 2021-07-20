@@ -79,8 +79,6 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1):
 
         # Removes the path and the file extension from the file names. Left with just the literal file name.
         file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))
-        print(data_files.shape)
-        print(label_files.shape)
         return data_files, label_files, np.asarray(file_lens), file_names
 
     return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)

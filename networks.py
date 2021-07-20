@@ -27,7 +27,8 @@ class OksuzLSTM(nn.Module):
         super().__init__()
         self.rnn = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
                            batch_first=True, bidirectional=bidirectional)
-        self.fc1 = nn.Linear(in_features=(2 if bidirectional else 1) * hidden_size * seq_len, out_features=2)
+        self.fc1 = nn.Linear(in_features=((2 if bidirectional else 1) * hidden_size * seq_len) // input_size,
+                             out_features=2)
 
     def forward(self, x):
         batch_size = x.shape[0]
