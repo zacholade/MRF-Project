@@ -39,21 +39,7 @@ class Oksuz(nn.Module):
         fc_out = self.fc1(rnn_out)
         return fc_out
 
-    #
-    # def forward(self, x):
-    #     # for i in range(100):
-    #     #     x_ = np.arange(1000)
-    #     #     print(x.shape)
-    #     #     y = x[i].detach().cpu().numpy()
-    #     #     import matplotlib.pyplot as plt
-    #     #     plt.scatter(x_, y, s=1)
-    #     #     plt.show()
-    #
-    #     batch_size = x.shape[0]
-    #     # x = x.unsqueeze(dim=2)
-    #     x = x.view(batch_size, -1, self.rnn.input_size)
-    #     lstm_out, (hn, _) = self.rnn(x)
-    #     # lstm_out = lstm_out.view(batch_size, -1)
-    #     # print(lstm_out.shape)
-    #     fc_out = self.fc(lstm_out[:, -1, :])
-    #     return fc_out
+
+class HoppeRNN(nn.Module):
+    def __init__(self):
+        super().__init__()
