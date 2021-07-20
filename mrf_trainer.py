@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from multiprocessing import Process
 
 import git
 import numpy as np
@@ -14,10 +15,9 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
-from networks import CohenMLP, Oksuz
+from networks import CohenMLP, Oksuz, Hoppe
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot
-from multiprocessing import Process
 
 
 class TrainingAlgorithm:
@@ -167,7 +167,7 @@ class TrainingAlgorithm:
                 current_iteration += 1
                 if current_iteration % 100 == 0:
                     print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                          f"{self.limit_iterations if self.debug else int(np.floor(len(training_dataset) / self.batch_size))}, "
+                          f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                           f"LR: {self.lr_scheduler.get_last_lr()[0]}")
                 predicted, loss = self.train(data, labels, pos)
                 self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
@@ -212,7 +212,7 @@ class TrainingAlgorithm:
 
 def main():
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz']
+    network_choices = ['cohen', 'oksuz', 'hoppe']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', '-d', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
@@ -240,6 +240,10 @@ def main():
         model = CohenMLP(seq_len=config.seq_len)
     elif args.network == 'oksuz':
         model = Oksuz(config.gru, input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
+                      seq_len=config.seq_len, num_layers=config.lstm_num_layers,
+                      bidirectional=config.lstm_bidirectional)
+    elif args.network == 'hoppe':
+        model = Hoppe(config.gru, input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
                       seq_len=config.seq_len, num_layers=config.lstm_num_layers,
                       bidirectional=config.lstm_bidirectional)
     else:
