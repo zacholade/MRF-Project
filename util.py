@@ -1,10 +1,11 @@
+import gc
 import os
+from multiprocessing import Process
 
+import git
 import numpy as np
 from matplotlib import pyplot as plt
-import gc
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import git
 
 
 def get_all_data_files():
@@ -110,16 +111,7 @@ def get_exports_dir(model, debug: bool):
     return path
 
 
-def plot(predicted, labels, pos, epoch: int, save_dir: str):
-    """
-    :param predicted: The predicted t1 and t2 labels.
-    :param labels: The ground-truth t1 and t2 labels.
-    :param pos: The index position matrix for each t1 and t2 value.
-    :param save_dir: Optional argument. Saves the plots to that directory if not None.
-    """
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
-
+def do_plot(predicted, labels, pos, epoch: int, save_dir: str):
     predicted_t1, predicted_t2 = predicted.transpose()
     actual_t1, actual_t2 = labels.transpose()
 
@@ -189,3 +181,20 @@ def plot(predicted, labels, pos, epoch: int, save_dir: str):
     plt.close('all')
     plt.close(fig)
     gc.collect()
+
+
+def plot(predicted, labels, pos, epoch: int, save_dir: str):
+    """
+    :param predicted: The predicted t1 and t2 labels.
+    :param labels: The ground-truth t1 and t2 labels.
+    :param pos: The index position matrix for each t1 and t2 value.
+    :param save_dir: Optional argument. Saves the plots to that directory if not None.
+    """
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+
+    p = Process(target=do_plot,
+                args=(predicted, labels, pos, epoch),
+                kwargs={"save_dir": save_dir})
+    p.start()
+    p.join()

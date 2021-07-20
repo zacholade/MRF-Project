@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from multiprocessing import Process
 
 import git
 import numpy as np
@@ -173,14 +172,17 @@ class TrainingAlgorithm(LoggingMixin):
                             os.mkdir(f"{self.export_dir}/Plots")
                         # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
                         # join to it. When process is suspended, memory is forcibly released.
-                        p = Process(target=plot,
-                                    args=(predicted.cpu().detach().numpy(),
-                                          labels.cpu().numpy(),
-                                          pos.cpu().numpy().astype(int),
-                                          epoch),
-                                    kwargs={"save_dir": f"{self.export_dir}/Plots/{file_name}"})
-                        p.start()
-                        p.join()
+                        plot(predicted.cpu().detach().numpy(),
+                             labels.cpu().numpy(),
+                             pos.cpu().numpy().astype(int),
+                             epoch,
+                             save_dir=f"{self.export_dir}/Plots/{file_name}")
+
+                        plot(predicted.cpu().detach().numpy(),
+                             labels.cpu().numpy(),
+                             pos.cpu().numpy().astype(int),
+                             epoch,
+                             save_dir=f"{self.export_dir}/Plots/{file_name}")
 
             self.lr_scheduler.step()
             self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr())
