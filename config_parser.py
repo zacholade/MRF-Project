@@ -43,20 +43,20 @@ class Configuration:
         return self._config.getboolean(f"{self.network_name}Hyperparameters", "gru")
 
     @property
-    def lstm_input_size(self) -> int:
-        return self._config.getint(f"{self.network_name}Hyperparameters", "lstm_input_size")
+    def rnn_input_size(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "rnn_input_size")
 
     @property
-    def lstm_hidden_size(self) -> int:
-        return self._config.getint(f"{self.network_name}Hyperparameters", "lstm_hidden_size")
+    def rnn_hidden_size(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "rnn_hidden_size")
 
     @property
-    def lstm_num_layers(self) -> int:
-        return self._config.getint(f"{self.network_name}Hyperparameters", "lstm_num_layers")
+    def rnn_num_layers(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "rnn_num_layers")
 
     @property
-    def lstm_bidirectional(self) -> bool:
-        return self._config.getboolean(f"{self.network_name}Hyperparameters", "lstm_bidirectional")
+    def rnn_bidirectional(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "rnn_bidirectional")
 
     @property
     def limit_iterations(self) -> int:
