@@ -259,7 +259,7 @@ def main():
                                 config.batch_size,
                                 seq_len=config.seq_len,
                                 num_training_dataloader_workers=args.num_workers,
-                                num_testing_dataloader_workers=1,
+                                num_testing_dataloader_workers=args.num_workers // 2,
                                 plot_every=args.plot_every,
                                 debug=args.debug,
                                 limit_number_files=config.limit_number_files,
