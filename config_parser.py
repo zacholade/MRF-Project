@@ -39,6 +39,10 @@ class Configuration:
         return self._config.getfloat(f"{self.network_name}Hyperparameters", "lr_gamma")
 
     @property
+    def gru(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "gru")
+
+    @property
     def lstm_input_size(self) -> int:
         return self._config.getint(f"{self.network_name}Hyperparameters", "lstm_input_size")
 

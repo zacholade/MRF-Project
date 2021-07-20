@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
-from networks import CohenMLP, OksuzLSTM
+from networks import CohenMLP, Oksuz
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot
 from multiprocessing import Process
@@ -212,7 +212,7 @@ class TrainingAlgorithm:
 
 def main():
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz_lstm']
+    network_choices = ['cohen', 'oksuz']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', '-d', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
@@ -238,10 +238,10 @@ def main():
 
     if args.network == 'cohen':
         model = CohenMLP(seq_len=config.seq_len)
-    elif args.network == 'oksuz_lstm':
-        model = OksuzLSTM(input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
-                          seq_len=config.seq_len, num_layers=config.lstm_num_layers,
-                          bidirectional=config.lstm_bidirectional)
+    elif args.network == 'oksuz':
+        model = Oksuz(config.gru, input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
+                      seq_len=config.seq_len, num_layers=config.lstm_num_layers,
+                      bidirectional=config.lstm_bidirectional)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
