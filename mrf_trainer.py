@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 from multiprocessing import Process
 
@@ -15,12 +16,13 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
+from logging_manager import setup_logging, LoggingMixin
 from networks import CohenMLP, Oksuz, Hoppe
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
-from util import load_all_data_files, plot
+from util import load_all_data_files, plot, get_exports_dir
 
 
-class TrainingAlgorithm:
+class TrainingAlgorithm(LoggingMixin):
     def __init__(self,
                  model,
                  optimiser: optim.Optimizer,
@@ -29,6 +31,7 @@ class TrainingAlgorithm:
                  loss,
                  total_epochs: int,
                  batch_size: int,
+                 export_dir: str,
                  seq_len: int = 1000,
                  starting_epoch: int = 0,
                  num_training_dataloader_workers: int = 1,
@@ -57,36 +60,12 @@ class TrainingAlgorithm:
         self.limit_number_files = limit_number_files
         self.limit_iterations = limit_iterations
 
-        self.base_directory = self._get_directory()
-        self.logger = DataLogger(f"{self.base_directory}/Logs")
-
-    def _get_directory(self):
-        if not os.path.exists("Exports"):
-            os.mkdir("Exports")
-
-        repo = git.Repo(search_parent_directories=True)
-        sha = repo.head.object.hexsha
-
-        from datetime import datetime
-        date = datetime.today().strftime('%Y-%m-%d_%H-%M')
-
-        path = f"{self.model.__class__.__name__}_{date}_GIT-{sha}"
-        path = f"DEBUG-{path}" if self.debug else path
-        path = f"Exports/{path}"
-
-        # This block of code makes sure the folder saving to is new and not been saved to before.
-        if os.path.exists(path):
-            num = 1
-            while os.path.exists(f"{path}_{num}"):
-                num += 1
-            path = f"{path}_{num}"
-
-        os.mkdir(path)
-        return path
+        self.export_dir = export_dir
+        self.data_logger = DataLogger(f"{self.export_dir}/Logs")
 
     def save(self, epoch):
-        if not os.path.exists(f"{self.base_directory}/Models"):
-            os.mkdir(f"{self.base_directory}/Models")
+        if not os.path.exists(f"{self.export_dir}/Models"):
+            os.mkdir(f"{self.export_dir}/Models")
 
         filename = f"{self.model.__class__.__name__}_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
                    f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}.pt"
@@ -98,7 +77,7 @@ class TrainingAlgorithm:
             'lr_scheduler': self.lr_scheduler.state_dict(),
             'loss': self.loss,
             'batch_size': self.batch_size
-        }, f"{self.base_directory}/Models/{filename}")
+        }, f"{self.export_dir}/Models/{filename}")
 
     @classmethod
     def load(cls, path):
@@ -166,14 +145,14 @@ class TrainingAlgorithm:
 
                 current_iteration += 1
                 if current_iteration % 100 == 0:
-                    print(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                          f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
-                          f"LR: {self.lr_scheduler.get_last_lr()[0]}")
+                    self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
+                                     f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
+                                     f"LR: {self.lr_scheduler.get_last_lr()[0]}")
                 predicted, loss = self.train(data, labels, pos)
-                self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
+                self.data_logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
 
             if not skip_valid:
-                print(f"Done training. Starting validation for epoch {epoch}.")
+                self.logger.info(f"Done training. Starting validation for epoch {epoch}.")
                 validate_loader = torch.utils.data.DataLoader(validation_dataset,
                                                               batch_size=1,
                                                               collate_fn=ScanwiseDataset.collate_fn,
@@ -183,15 +162,15 @@ class TrainingAlgorithm:
                 validate_set = iter(validate_loader)
 
                 for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
-                    print(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
-                          f"{len(validate_loader)}")
+                    self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
+                                     f"{len(validate_loader)}")
                     data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
                     predicted, loss = self.validate(data, labels, pos)
-                    self.logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
+                    self.data_logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
 
                     if self.plot_every > 0 and epoch % self.plot_every == 0:
-                        if not os.path.exists(f"{self.base_directory}/Plots"):
-                            os.mkdir(f"{self.base_directory}/Plots")
+                        if not os.path.exists(f"{self.export_dir}/Plots"):
+                            os.mkdir(f"{self.export_dir}/Plots")
                         # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
                         # join to it. When process is suspended, memory is forcibly released.
                         p = Process(target=plot,
@@ -199,40 +178,21 @@ class TrainingAlgorithm:
                                           labels.cpu().numpy(),
                                           pos.cpu().numpy().astype(int),
                                           epoch),
-                                    kwargs={"save_dir": f"{self.base_directory}/Plots/{file_name}"})
+                                    kwargs={"save_dir": f"{self.export_dir}/Plots/{file_name}"})
                         p.start()
                         p.join()
 
             self.lr_scheduler.step()
-            self.logger.log('learning_rate', self.lr_scheduler.get_last_lr())
+            self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr())
             self.save(epoch)
-            self.logger.on_epoch_end(epoch)
-            print(f"Epoch {epoch} complete")
+            self.data_logger.on_epoch_end(epoch)
+            self.logger.info(f"Epoch {epoch} complete")
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz', 'hoppe']
-    parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
-    parser.add_argument('-debug', '-d', action='store_true', default=False)
-    parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
-    parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)
-    parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
-    parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
-    args = parser.parse_args()
-    args.plot_every = 0 if args.no_plot else args.plot_every
-
-    config = Configuration(args.network, "config.ini", args.debug)
-
-    print(f"Using {args.network} model.")
-    print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
-    print(f"There are {args.num_workers} sub-process workers loading training data.")
-    print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}.")
-    print(f"Using {config.seq_len} dimensional fingerprints.")
-
+def main(args, config, logger):
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
-        print("Git head is not clean. Exiting...")
+        logger.info("Git head is not clean. Exiting...")
         import sys
         sys.exit(0)
 
@@ -251,7 +211,15 @@ def main():
         print("Invalid network. Exiting...")
         sys.exit(1)
 
-    print(model)
+    export_dir = get_exports_dir(model, args.debug)
+    file_handler = logging.FileHandler(f"{export_dir}/logs.log")
+    logger.addHandler(file_handler)
+    logger.info(f"Using {args.network} model.")
+    logger.info(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
+    logger.info(f"There are {args.num_workers} sub-process workers loading training data.")
+    logger.info(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}.")
+    logger.info(f"Using {config.seq_len} dimensional fingerprints.")
+    logger.info(f"Model: {model}")
 
     optimiser = optim.Adam(model.parameters(), lr=config.lr)
     lr_scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=config.lr_step_size, gamma=config.lr_gamma)
@@ -263,6 +231,7 @@ def main():
                                 loss,
                                 config.total_epochs,
                                 config.batch_size,
+                                export_dir,
                                 seq_len=config.seq_len,
                                 num_training_dataloader_workers=args.num_workers,
                                 num_testing_dataloader_workers=args.num_workers // 2,
@@ -274,4 +243,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    network_choices = ['cohen', 'oksuz', 'hoppe']
+    parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
+    parser.add_argument('-debug', '-d', action='store_true', default=False)
+    parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
+    parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)
+    parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
+    parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
+    args = parser.parse_args()
+    args.plot_every = 0 if args.no_plot else args.plot_every
+
+    config = Configuration(args.network, "config.ini", args.debug)
+
+    with setup_logging(config.debug) as logger:
+        main(args, config, logger)

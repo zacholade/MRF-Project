@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import gc
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+import git
 
 
 def get_all_data_files():
@@ -82,6 +83,31 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1):
         return data_files, label_files, np.asarray(file_lens), file_names
 
     return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)
+
+
+def get_exports_dir(model, debug: bool):
+    if not os.path.exists("Exports"):
+        os.mkdir("Exports")
+
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha
+
+    from datetime import datetime
+    date = datetime.today().strftime('%Y-%m-%d_%H-%M')
+
+    path = f"{model.__class__.__name__}_{date}_GIT-{sha}"
+    path = f"DEBUG-{path}" if debug else path
+    path = f"Exports/{path}"
+
+    # This block of code makes sure the folder saving to is new and not been saved to before.
+    if os.path.exists(path):
+        num = 1
+        while os.path.exists(f"{path}_{num}"):
+            num += 1
+        path = f"{path}_{num}"
+
+    os.mkdir(path)
+    return path
 
 
 def plot(predicted, labels, pos, epoch: int, save_dir: str):
