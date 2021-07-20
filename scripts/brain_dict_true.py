@@ -28,7 +28,7 @@ def brain_dict_true(eng,
     t1s = t1s if t1s is not None else [*range(100, 2000, 40), *range(2200, 6200, 200)]
     t2s = t2s if t2s is not None else [*range(20, 102, 2), *range(110, 200, 4), *range(220, 620, 20)]
 
-    tr = [10 for _ in range(1000)]
+    tr = [10 for _ in range(len(rf_pulses))]
     off = off if off is not None else [0]
     # offs = list(np.array([*range(-250, -150, 40), *range(-50, 52, 2), *range(190, 290, 40)])*0)
 
@@ -45,4 +45,4 @@ def brain_dict_true(eng,
     look_up_table = np.asarray(look_up_table)
 
     # Apply proton density scaling
-    return d * pd, dict_norm
+    return d, dict_norm

@@ -34,7 +34,7 @@ def get_all_filenames() -> List[str]:
 
 
 def gen_fp_map(filename):
-    with open("Data/Labels/" + filename, "rb") as f:
+    with open("Data/RawLabels/" + filename, "rb") as f:
         scan = np.load(f)
 
     if os.path.isfile("Data/Output/Data/" + filename):
@@ -50,7 +50,7 @@ def gen_fp_map(filename):
     eng.addpath("CoverBLIP/CoverBLIP toolbox/data")
     off = [0]
     with open("Data/RFpulses.npy", "rb") as f:
-        rf_pulses = list(np.load(f))[:1000]
+        rf_pulses = list(np.load(f))[:500]
 
     fingerprint_map = [[] for _ in range(230)]
     dict_norm_map = [[] for _ in range(230)]

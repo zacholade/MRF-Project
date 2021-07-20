@@ -29,6 +29,7 @@ class TrainingAlgorithm:
                  loss,
                  total_epochs: int,
                  batch_size: int,
+                 seq_len: int = 1000,
                  starting_epoch: int = 0,
                  num_training_dataloader_workers: int = 1,
                  num_testing_dataloader_workers: int = 1,
@@ -43,6 +44,7 @@ class TrainingAlgorithm:
         self.lr_scheduler = lr_scheduler
         self.initial_lr = initial_lr
         self.loss = loss
+        self.seq_len = seq_len
         self.starting_epoch = starting_epoch
         self.total_epochs = total_epochs
         self.batch_size = batch_size
@@ -143,7 +145,7 @@ class TrainingAlgorithm:
         training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
         (train_data, train_labels, train_file_lens, train_file_names),\
-            (valid_data, valid_labels, valid_file_lens, valid_file_names) = load_all_data_files(
+            (valid_data, valid_labels, valid_file_lens, valid_file_names) = load_all_data_files(seq_len=self.seq_len,
             file_limit=self.limit_number_files)
 
         training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
@@ -217,6 +219,7 @@ def main():
     parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)
     parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
+    parser.add_argument('-seq_len', '-seqlen', '-fp_len', dest='seq_len', default=1000, type=int)
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
 
@@ -226,6 +229,7 @@ def main():
     print(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
     print(f"There are {args.num_workers} sub-process workers loading training data.")
     print(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}.")
+    print(f"Using {args.seq_len} dimensional fingerprints.")
 
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
@@ -234,9 +238,9 @@ def main():
         sys.exit(0)
 
     if args.network == 'cohen':
-        model = CohenMLP()
+        model = CohenMLP(seq_len=args.seq_len)
     elif args.network == 'oksuz_lstm':
-        model = OksuzLSTM(input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
+        model = OksuzLSTM(input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size, seq_len=args.seq_len,
                           num_layers=config.lstm_num_layers, bidirectional=config.lstm_bidirectional)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
@@ -253,6 +257,7 @@ def main():
                                 loss,
                                 config.total_epochs,
                                 config.batch_size,
+                                seq_len=args.seq_len,
                                 num_training_dataloader_workers=args.num_workers,
                                 num_testing_dataloader_workers=1,
                                 plot_every=args.plot_every,
