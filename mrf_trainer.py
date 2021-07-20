@@ -176,13 +176,8 @@ class TrainingAlgorithm(LoggingMixin):
                              labels.cpu().numpy(),
                              pos.cpu().numpy().astype(int),
                              epoch,
-                             save_dir=f"{self.export_dir}/Plots/{file_name}")
-
-                        plot(predicted.cpu().detach().numpy(),
-                             labels.cpu().numpy(),
-                             pos.cpu().numpy().astype(int),
-                             epoch,
-                             save_dir=f"{self.export_dir}/Plots/{file_name}")
+                             f"{self.export_dir}/Plots/{file_name}",
+                             file_name)
 
             self.lr_scheduler.step()
             self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr())

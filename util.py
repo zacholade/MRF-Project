@@ -1,4 +1,5 @@
 import gc
+import logging
 import os
 from multiprocessing import Process
 
@@ -6,6 +7,9 @@ import git
 import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+
+logger = logging.getLogger("mrf")
 
 
 def get_all_data_files():
@@ -60,7 +64,7 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1):
         label_files = np.zeros((len(label_names), max_size, 5))
         file_lens = []
         for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
-            print(f"Loading file {i+1} / {len(label_names)}.")
+            logger.info(f"Loading file {i+1} / {len(label_names)}.")
             data_file = np.load(data_file_name)
             data_file = data_file[:, :seq_len]  # Limit fingerprint length if specified.
             label_file = np.load(label_file_name)
@@ -111,7 +115,7 @@ def get_exports_dir(model, debug: bool):
     return path
 
 
-def do_plot(predicted, labels, pos, epoch: int, save_dir: str):
+def do_plot(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str):
     predicted_t1, predicted_t2 = predicted.transpose()
     actual_t1, actual_t2 = labels.transpose()
 
@@ -171,7 +175,7 @@ def do_plot(predicted, labels, pos, epoch: int, save_dir: str):
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
 
-    plt.savefig(f"{save_dir}/epoch-{epoch}")
+    plt.savefig(f"{save_dir}/{subj_name}_epoch-{epoch}")
 
     # Clear the current axes.
     plt.cla()
@@ -183,7 +187,7 @@ def do_plot(predicted, labels, pos, epoch: int, save_dir: str):
     gc.collect()
 
 
-def plot(predicted, labels, pos, epoch: int, save_dir: str):
+def plot(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str):
     """
     :param predicted: The predicted t1 and t2 labels.
     :param labels: The ground-truth t1 and t2 labels.
@@ -194,7 +198,6 @@ def plot(predicted, labels, pos, epoch: int, save_dir: str):
         os.mkdir(save_dir)
 
     p = Process(target=do_plot,
-                args=(predicted, labels, pos, epoch),
-                kwargs={"save_dir": save_dir})
+                args=(predicted, labels, pos, epoch, save_dir, subj_name))
     p.start()
     p.join()

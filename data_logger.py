@@ -1,9 +1,13 @@
 import csv
+import logging
 import os
 from collections import defaultdict
 
 import numpy as np
 import torch
+
+
+logger = logging.getLogger('mrf')
 
 
 class DataLogger:
@@ -65,8 +69,8 @@ class DataLogger:
         for field, value in self._log.items():
             values.append(str(np.mean(value)))
 
-        print(", ".join(['epoch', *self._log.keys()]))
-        print(", ".join(values))
+        logger.info(", ".join(['epoch', *self._log.keys()]))
+        logger.info(", ".join(values))
 
         with open(self.qualified_filename, 'a', newline='') as file:
             writer = csv.writer(file)
