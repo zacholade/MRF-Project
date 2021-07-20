@@ -251,6 +251,8 @@ def main():
         print("Invalid network. Exiting...")
         sys.exit(1)
 
+    print(model)
+
     optimiser = optim.Adam(model.parameters(), lr=config.lr)
     lr_scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=config.lr_step_size, gamma=config.lr_gamma)
     loss = nn.MSELoss()
