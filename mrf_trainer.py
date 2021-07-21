@@ -16,9 +16,9 @@ from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset
 from logging_manager import setup_logging, LoggingMixin
-from networks import CohenMLP, Oksuz, Hoppe
+from networks import CohenMLP, OksuzRNN, Hoppe, RNNAttention
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
-from util import load_all_data_files, plot, get_exports_dir
+from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
 
 class TrainingAlgorithm(LoggingMixin):
@@ -172,7 +172,8 @@ class TrainingAlgorithm(LoggingMixin):
                             os.mkdir(f"{self.export_dir}/Plots")
                         # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
                         # join to it. When process is suspended, memory is forcibly released.
-                        plot(predicted.cpu().detach().numpy(),
+                        plot(plot_maps,
+                             predicted.cpu().detach().numpy(),
                              labels.cpu().numpy(),
                              pos.cpu().numpy().astype(int),
                              epoch,
@@ -195,14 +196,16 @@ def main(args, config, logger):
 
     if args.network == 'cohen':
         model = CohenMLP(seq_len=config.seq_len)
-    elif args.network == 'oksuz':
-        model = Oksuz(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
+    elif args.network == 'oksuz_rnn':
+        model = OksuzRNN(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
                       seq_len=config.seq_len, num_layers=config.rnn_num_layers,
                       bidirectional=config.rnn_bidirectional)
     elif args.network == 'hoppe':
         model = Hoppe(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
                       seq_len=config.seq_len, num_layers=config.rnn_num_layers,
                       bidirectional=config.rnn_bidirectional)
+    elif args.network == 'rnn_attention':
+        model = RNNAttention(seq_len=config.seq_len)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
@@ -241,7 +244,7 @@ def main(args, config, logger):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz', 'hoppe']
+    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', '-d', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)

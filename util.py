@@ -115,7 +115,10 @@ def get_exports_dir(model, debug: bool):
     return path
 
 
-def do_plot(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str):
+def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str):
+    if not os.path.exists(save_dir):
+        os.mkdir(save_dir)
+
     predicted_t1, predicted_t2 = predicted.transpose()
     actual_t1, actual_t2 = labels.transpose()
 
@@ -187,17 +190,32 @@ def do_plot(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str):
     gc.collect()
 
 
-def plot(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str):
+def plot_fp(fingerprint):
+    x = np.arange(len(fingerprint))
+    plt.scatter(x, fingerprint, s=1)
+    plt.show()
+
+    # Clear the current axes.
+    plt.cla()
+    # Clear the current figure.
+    plt.clf()
+    # Closes all the figure windows.
+    gc.collect()
+
+def plot(func, *args, **kwargs):
     """
+    Matplotlib has a memory leak which causes memory to grow in the training loop...
+    Do plotting in subprocess so that when subprocess terminates, memory is forcibly released.
+
     :param predicted: The predicted t1 and t2 labels.
     :param labels: The ground-truth t1 and t2 labels.
     :param pos: The index position matrix for each t1 and t2 value.
     :param save_dir: Optional argument. Saves the plots to that directory if not None.
     """
-    if not os.path.exists(save_dir):
-        os.mkdir(save_dir)
-
-    p = Process(target=do_plot,
-                args=(predicted, labels, pos, epoch, save_dir, subj_name))
+    p = Process(target=func,
+                args=args,
+                kwargs=kwargs)
     p.start()
     p.join()
+
+
