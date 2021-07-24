@@ -14,11 +14,15 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 
 from config_parser import Configuration
 from data_logger import DataLogger
-from datasets import PixelwiseDataset, ScanwiseDataset
+from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset
 from logging_manager import setup_logging, LoggingMixin
 from networks import CohenMLP, OksuzRNN, Hoppe, RNNAttention
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
+
+
+import sys
+np.set_printoptions(threshold=sys.maxsize)
 
 
 class TrainingAlgorithm(LoggingMixin):
@@ -128,8 +132,13 @@ class TrainingAlgorithm(LoggingMixin):
             (valid_data, valid_labels, valid_file_lens, valid_file_names) = load_all_data_files(seq_len=self.seq_len,
             file_limit=self.limit_number_files)
 
-        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
-                                            train_file_names, transform=training_transforms)
+        if isinstance(self.model, Hoppe) and self.model.spatial is True:
+            # If we are using a spatial dataset we need to return neighbouring pixels.
+            training_dataset = PatchwiseDataset(train_data, train_labels, train_file_lens,
+                                                train_file_names, transform=training_transforms)
+        else:
+            training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
+                                                train_file_names, transform=training_transforms)
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
                                              valid_file_names, transform=validation_transforms)
 
@@ -208,7 +217,7 @@ def main(args, config, logger):
     elif args.network == 'hoppe':
         model = Hoppe(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
                       seq_len=config.seq_len, num_layers=config.rnn_num_layers,
-                      bidirectional=config.rnn_bidirectional)
+                      bidirectional=config.rnn_bidirectional, spatial=config.spatial)
     elif args.network == 'rnn_attention':
         using_attention = True
         model = RNNAttention(input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,

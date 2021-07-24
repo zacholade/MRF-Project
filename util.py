@@ -191,8 +191,17 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
 
 
 def plot_fp(fingerprint):
-    x = np.arange(len(fingerprint))
-    plt.scatter(x, fingerprint, s=1)
+    def _plot_fp(fp_):
+        x = np.arange(len(fp_))
+        plt.scatter(x, fp_, s=1)
+        plt.show()
+
+    if isinstance(fingerprint, list):
+        for fp in fingerprint:
+            _plot_fp(fp)
+    else:
+        _plot_fp(fingerprint)
+
     plt.show()
 
     # Clear the current axes.

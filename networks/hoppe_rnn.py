@@ -9,8 +9,9 @@ class Hoppe(nn.Module):
     In GMDS (pp. 126-133).
     """
     def __init__(self, gru: bool, input_size: int, hidden_size: int, seq_len: int = 1000,
-                 num_layers: int = 1, bidirectional: bool = False):
+                 num_layers: int = 1, bidirectional: bool = False, spatial: bool = False):
         super().__init__()
+        self.spatial = spatial
         rnn = nn.GRU if gru else nn.LSTM
         self.rnn = rnn(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers,
                        batch_first=True, bidirectional=bidirectional)
@@ -37,6 +38,7 @@ class Hoppe(nn.Module):
             nn.ReLU(),
             nn.BatchNorm1d(num_features=2)
         )
+
 
     def forward(self, x):
         batch_size = x.shape[0]

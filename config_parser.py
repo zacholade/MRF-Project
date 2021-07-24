@@ -59,6 +59,10 @@ class Configuration:
         return self._config.getboolean(f"{self.network_name}Hyperparameters", "rnn_bidirectional")
 
     @property
+    def spatial(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "spatial")
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1
