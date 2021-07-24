@@ -259,6 +259,7 @@ if __name__ == "__main__":
     parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)
     parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
+    parser.add_argument('-notes', '-note', dest='notes', type=str)
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
 
