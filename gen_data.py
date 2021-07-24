@@ -11,7 +11,7 @@ import numpy as np
 from scripts.brain_dict_true import brain_dict_true
 import logging
 
-logger = logging.getLogger()
+logger = logging.getLogger('mrf')
 logger.setLevel(logging.INFO)
 default_logging_format = ''.join([
     "[",

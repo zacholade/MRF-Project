@@ -26,7 +26,7 @@ def setup_logging(debug: bool) -> logging.Logger:
             "] ",
             "%(message)s",
         ])
-        logger = logging.getLogger()
+        logger = logging.getLogger('mrf')
         logging.basicConfig(format=default_logging_format)
         logger.setLevel(logging.DEBUG) if debug else logger.setLevel(logging.INFO)
         yield logger

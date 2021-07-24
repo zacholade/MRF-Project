@@ -101,6 +101,7 @@ class TrainingAlgorithm(LoggingMixin):
     def train(self, data, labels, pos):
         self.model.train()
         predicted = self.model.forward(data)
+        predicted = predicted[0] if isinstance(predicted, tuple) else predicted
         loss = self.loss(predicted, labels)
         self.optimiser.zero_grad()
         loss.backward()
@@ -110,6 +111,7 @@ class TrainingAlgorithm(LoggingMixin):
     def validate(self, data, labels, pos):
         self.model.eval()
         predicted = self.model.forward(data)
+        predicted = predicted[0] if isinstance(predicted, tuple) else predicted
         loss = self.loss(predicted, labels)
         return predicted, loss
 
@@ -194,6 +196,9 @@ def main(args, config, logger):
         import sys
         sys.exit(0)
 
+    # If true, return type from model.forward() is ((batch_size, labels), attention)
+    using_attention = False
+
     if args.network == 'cohen':
         model = CohenMLP(seq_len=config.seq_len)
     elif args.network == 'oksuz_rnn':
@@ -205,7 +210,10 @@ def main(args, config, logger):
                       seq_len=config.seq_len, num_layers=config.rnn_num_layers,
                       bidirectional=config.rnn_bidirectional)
     elif args.network == 'rnn_attention':
-        model = RNNAttention(seq_len=config.seq_len)
+        using_attention = True
+        model = RNNAttention(input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
+                             batch_size=config.batch_size, seq_len=config.seq_len,
+                             num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
