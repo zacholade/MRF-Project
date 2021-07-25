@@ -16,7 +16,7 @@ from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset
 from logging_manager import setup_logging, LoggingMixin
-from networks import CohenMLP, OksuzRNN, Hoppe, RNNAttention
+from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 

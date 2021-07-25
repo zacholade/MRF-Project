@@ -1,4 +1,4 @@
-from networks import *
+from models import *
 import argparse
 from config_parser import Configuration
 
