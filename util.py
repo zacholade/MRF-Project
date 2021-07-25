@@ -178,7 +178,7 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
 
-    plt.savefig(f"{save_dir}/{subj_name}_epoch-{epoch}")
+    plt.savefig(f"{save_dir}/{subj_name}_epoch-{epoch}.svg")
 
     # Clear the current axes.
     plt.cla()
