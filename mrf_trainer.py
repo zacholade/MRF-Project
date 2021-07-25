@@ -138,13 +138,9 @@ class TrainingAlgorithm(LoggingMixin):
             (valid_data, valid_labels, valid_file_lens, valid_file_names) = load_all_data_files(seq_len=self.seq_len,
             file_limit=self.limit_number_files)
 
-        if isinstance(self.model, Hoppe) and self.model.spatial is True:
-            # If we are using a spatial dataset we need to return neighbouring pixels.
-            training_dataset = PatchwiseDataset(train_data, train_labels, train_file_lens,
-                                                train_file_names, transform=training_transforms)
-        else:
-            training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
-                                                train_file_names, transform=training_transforms)
+        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
+                                            train_file_names, transform=training_transforms)
+
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
                                              valid_file_names, transform=validation_transforms)
 
