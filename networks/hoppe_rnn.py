@@ -37,10 +37,7 @@ class Hoppe(nn.Module):
             nn.ReLU(),
             nn.BatchNorm1d(num_features=fc3_out_feature_size),
             nn.Linear(in_features=fc3_out_feature_size, out_features=2),
-            nn.ReLU(),
-            nn.BatchNorm1d(num_features=2)
         )
-
         if spatial:
             self.pooling = nn.AvgPool2d((3, 3), (1, 1), padding=0)
 
