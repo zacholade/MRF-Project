@@ -53,6 +53,15 @@ class Attention(nn.Module):
         return context, attention
 
 
+class GeneralDotProductAttention(nn.Module):
+    def __init__(self, hidden_size: int):
+        super().__init__()
+        self.weights = nn.Linear(in_features=hidden_size, out_features=hidden_size, bias=False)
+
+    def forward(self):
+        ...
+
+
 class ScaledDotProductAttention(nn.Module):
     """
     https://arxiv.org/pdf/1409.0473.pdf
@@ -62,14 +71,23 @@ class ScaledDotProductAttention(nn.Module):
         super().__init__()
         self.scale = 1. / np.sqrt(query_dim)
 
+    # def forward(self, query, keys, values):
+    #     fps = query
+    #     query = query.unsqueeze(2)
+    #     keys = keys.unsqueeze(2).permute(0, 2, 1)  # B x seq_len x hidden -> B x hidden x seq_len
+    #     scores = torch.bmm(query, keys)  # B x 1 x seq_len
+    #     scores = torch.softmax(scores, dim=2)  # B x 1 x seq_len
+    #     values = values.unsqueeze(2)
+    #     output = torch.bmm(scores, values).squeeze(2)  # B x hidden
+    #     scores = scores.squeeze(1)  # B x seq_len
+    #     return output, scores
+
     def forward(self, query, keys, values):
-        fps = query
-        query = query.unsqueeze(2)
-        keys = keys.unsqueeze(2).permute(0, 2, 1)  # B x seq_len x hidden -> B x hidden x seq_len
+        query = query.unsqueeze(1)
+        keys = keys.permute(0, 2, 1)  # B x seq_len x hidden -> B x hidden x seq_len
         scores = torch.bmm(query, keys)  # B x 1 x seq_len
-        scores = torch.softmax(scores, dim=2)  # B x 1 x seq_len
-        values = values.unsqueeze(2)
-        output = torch.bmm(scores, values).squeeze(2)  # B x hidden
+        scores = torch.softmax(scores.mul_(self.scale), dim=2)  # B x 1 x seq_len
+        output = torch.bmm(scores, values).squeeze(1)  # B x hidden
         scores = scores.squeeze(1)  # B x seq_len
         return output, scores
 
@@ -82,7 +100,7 @@ class RNNAttention(nn.Module):
                                num_layers=num_layers, bidirectional=bidirectional)
         linear_dim = 2 * hidden_size if bidirectional else hidden_size
         lstm_out_feature_size = ((2 if bidirectional else 1) * seq_len * hidden_size) // input_size
-        self.decoder = nn.Linear(lstm_out_feature_size, 2)
+        self.decoder = nn.Linear(linear_dim, 2)
         self.attention = ScaledDotProductAttention(linear_dim)
 
     def forward(self, x):
@@ -90,6 +108,6 @@ class RNNAttention(nn.Module):
         # x = self.attention(x, x, x)
         x = x.view(batch_size, -1, self.encoder.input_size)
         encoder_output, h_n = self.encoder(x)
-        attention_out = self.attention(h_n, encoder_output, encoder_output)
-        labels = self.decoder(encoder_output)
+        attention_out, scores = self.attention(h_n, encoder_output, encoder_output)
+        labels = self.decoder(attention_out)
         return labels
