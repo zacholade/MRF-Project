@@ -233,7 +233,7 @@ def main(args, config, logger):
         print("Invalid network. Exiting...")
         sys.exit(1)
 
-    export_dir = get_exports_dir(model, args.debug)
+    export_dir = get_exports_dir(model, args)
     file_handler = logging.FileHandler(f"{export_dir}/logs.log")
     logger.addHandler(file_handler)
     logger.info(f"Using {args.network} model.")

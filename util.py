@@ -90,7 +90,7 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1):
     return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)
 
 
-def get_exports_dir(model, debug: bool):
+def get_exports_dir(model, args):
     if not os.path.exists("Exports"):
         os.mkdir("Exports")
 
@@ -100,8 +100,11 @@ def get_exports_dir(model, debug: bool):
     from datetime import datetime
     date = datetime.today().strftime('%Y-%m-%d_%H-%M')
 
-    path = f"{model.__class__.__name__}_{date}_GIT-{sha}"
-    path = f"DEBUG-{path}" if debug else path
+    path = f"{model.__class__.__name__}_{date}"
+    if args.notes is not None:
+        path = f"{path}_NOTES-{args.notes}"
+    path = f"{path}_GIT-{sha}"
+    path = f"DEBUG-{path}" if args.debug else path
     path = f"Exports/{path}"
 
     # This block of code makes sure the folder saving to is new and not been saved to before.
