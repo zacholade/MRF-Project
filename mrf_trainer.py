@@ -110,6 +110,7 @@ class TrainingAlgorithm(LoggingMixin):
             predicted = self.model.forward(data)
         predicted = predicted[0] if isinstance(predicted, tuple) else predicted
         loss = self.loss(predicted, labels)
+        self.logger.debug(f"Loss: {loss.item()}")
         self.optimiser.zero_grad()
         loss.backward()
         self.optimiser.step()

@@ -39,12 +39,12 @@ class Hoppe(nn.Module):
             nn.Linear(in_features=fc3_out_feature_size, out_features=2),
         )
         if spatial:
-            self.pooling = nn.AvgPool2d((3, 3), (1, 1), padding=0)
+            self.pooling = nn.AvgPool2d((3, 3), (1, 1), padding=1, count_include_pad=False)
 
 
     def forward(self, x, pos=None):
         batch_size = x.shape[0]
-        train = len(x.shape) == 3
+        train = len(x.shape) == 2
         x = x.view(batch_size, -1, self.rnn.input_size)
         x, *_ = self.rnn(x)
         x = x.reshape(batch_size, -1)
@@ -57,8 +57,17 @@ class Hoppe(nn.Module):
             empty = torch.empty((1, 230, 230, 2), device='cuda' if torch.cuda.is_available() else 'cpu')
             empty[:, x_, y_] = x
             x = empty.transpose(3, 1)
-            x = F.pad(x, (1, 1, 1, 1))
-            x = self.pooling(x)
-            x = x.transpose(3, 1)
-            x = x[:, x_, y_].squeeze(0)
+            x = self.pooling(x).squeeze(0)
+            x = x.transpose(2, 0)
+            x = x[x_, y_]
         return x
+
+
+# i = torch.arange(0, 50).reshape(1, 2, 5, 5).type(torch.FloatTensor)
+# # i = F.pad(i, (1, 1, 1, 1))
+# print(i.squeeze(0))
+# print(i.shape)
+# pool = nn.AvgPool2d((3, 3), (1, 1), padding=1, count_include_pad=False)
+# pooled = pool(i)
+# print(pooled.shape)
+# print(pooled)
