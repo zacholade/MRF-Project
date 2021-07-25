@@ -218,9 +218,10 @@ def main(args, config, logger):
                       seq_len=config.seq_len, num_layers=config.rnn_num_layers,
                       bidirectional=config.rnn_bidirectional)
     elif args.network == 'hoppe':
+        spatial_pooling = None if config.spatial_pooling.lower() == 'none' else config.spatial_pooling.lower()
         model = Hoppe(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
                       seq_len=config.seq_len, num_layers=config.rnn_num_layers,
-                      bidirectional=config.rnn_bidirectional, spatial=config.spatial)
+                      bidirectional=config.rnn_bidirectional, spatial_pooling=spatial_pooling)
     elif args.network == 'rnn_attention':
         using_attention = True
         model = RNNAttention(input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
