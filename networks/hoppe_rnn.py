@@ -1,4 +1,6 @@
+import torch
 from torch import nn
+import torch.nn.functional as F
 
 
 class Hoppe(nn.Module):
@@ -39,11 +41,33 @@ class Hoppe(nn.Module):
             nn.BatchNorm1d(num_features=2)
         )
 
+        if spatial:
+            self.pooling = nn.AvgPool2d((3, 3), (1, 1), padding=0)
 
-    def forward(self, x):
+
+    def forward(self, x, pos=None):
         batch_size = x.shape[0]
-        x = x.view(batch_size, -1, self.rnn.input_size)
+        train = len(x.shape) == 3
+        x = x.view(batch_size * 9, -1, self.rnn.input_size) if self.spatial and train else \
+            x.view(batch_size, -1, self.rnn.input_size)
         x, *_ = self.rnn(x)
-        x = x.reshape(batch_size, -1)
+        x = x.reshape(batch_size * 9, -1) if self.spatial and train else x.reshape(batch_size, -1)
         x = self.layers(x)
+
+        if self.spatial:
+            # Apply pooling operation. Reduction by 9 in the 2nd dimension. (3x3 patches).
+            if train:
+                x = x.view(batch_size, -1, 3, 3)
+                x = self.pooling(x)
+                x = x.squeeze(2).squeeze(2)
+            else:
+                x_ = (pos // 230).type(torch.LongTensor)
+                y_ = (pos % 230).type(torch.LongTensor)
+                empty = torch.empty((1, 230, 230, 2), device='cuda' if torch.cuda.is_available() else 'cpu')
+                empty[:, x_, y_] = x
+                x = empty.transpose(3, 1)
+                x = F.pad(x, (1, 1, 1, 1))
+                x = self.pooling(x)
+                x = x.transpose(3, 1)
+                x = x[:, x_, y_].squeeze(0)
         return x

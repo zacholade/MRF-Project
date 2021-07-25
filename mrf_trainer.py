@@ -104,7 +104,10 @@ class TrainingAlgorithm(LoggingMixin):
 
     def train(self, data, labels, pos):
         self.model.train()
-        predicted = self.model.forward(data)
+        if hasattr(self.model, 'spatial') and self.model.spatial:
+            predicted = self.model.forward(data, pos)  # Need spatial information
+        else:
+            predicted = self.model.forward(data)
         predicted = predicted[0] if isinstance(predicted, tuple) else predicted
         loss = self.loss(predicted, labels)
         self.optimiser.zero_grad()
@@ -114,7 +117,10 @@ class TrainingAlgorithm(LoggingMixin):
 
     def validate(self, data, labels, pos):
         self.model.eval()
-        predicted = self.model.forward(data)
+        if hasattr(self.model, 'spatial') and self.model.spatial:
+            predicted = self.model.forward(data, pos)  # Need spatial information
+        else:
+            predicted = self.model.forward(data)
         predicted = predicted[0] if isinstance(predicted, tuple) else predicted
         loss = self.loss(predicted, labels)
         return predicted, loss
@@ -154,7 +160,7 @@ class TrainingAlgorithm(LoggingMixin):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
-                if current_iteration % 100 == 0:
+                if current_iteration % 1 == 0:
                     self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}")

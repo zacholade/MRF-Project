@@ -25,8 +25,8 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         datapoint_index = index % (self._cum_file_lens[file_index - 1])
         data = self.data[file_index, datapoint_index]
         label = self.labels[file_index, datapoint_index]
-        t1, t2, pd, pos, dn = label.transpose()
-        label = np.stack([t1, t2, pd, dn], axis=0)
+        pos = label[:, 3]
+        label = np.delete(label, 3, axis=1).transpose()
 
         if self.transform:
             data, label, pos = self.transform((data, label, pos))
@@ -45,15 +45,15 @@ class ScanwiseDataset(PixelwiseDataset):
     """1 index = 1 entire scan."""
     def __getitem__(self, index):
         data = self.data[index][:self._file_lens[index]]  # second index just removes the padding applied.
-        labels = self.labels[index][:self._file_lens[index]]
+        label = self.labels[index][:self._file_lens[index]]
         file_name = self._file_names[index]
-        t1, t2, pd, pos, dn = labels.transpose()
-        labels = np.stack([t1, t2, pd, dn], axis=0)
+        pos = label[:, 3]
+        label = np.delete(label, 3, axis=1).transpose()
 
         if self.transform:
-            data, labels, pos = self.transform((data, labels, pos))
+            data, label, pos = self.transform((data, label, pos))
 
-        return data, labels.transpose(), pos, file_name
+        return data, label.transpose(), pos, file_name
 
     def __len__(self):
         return len(self.data)
@@ -104,15 +104,20 @@ class PatchwiseDataset(PixelwiseDataset):
 
     def __getitem__(self, index):
         index = np.asarray(index)
+        batch_size = index.shape[0]
         file_index = np.argmin((index[:, np.newaxis] // self._cum_file_lens), axis=1)
         datapoint_index = index % (self._cum_file_lens[file_index - 1])
-        datapoint_index = self._get_surrounding_datapoint_indexes(file_index, datapoint_index)
-        data = self.data[np.repeat(file_index, 9), datapoint_index]
-        label = self.labels[np.repeat(file_index, 9), datapoint_index]
-        t1, t2, pd, pos, dn = label.transpose()
-        label = np.stack([t1, t2, pd, dn], axis=0)
+        spatial_datapoint_index = self._get_surrounding_datapoint_indexes(file_index, datapoint_index)
+        data = self.data[np.repeat(file_index, 9), spatial_datapoint_index]
+        label = self.labels[np.repeat(file_index, 9), spatial_datapoint_index]
+        pos = label[:, 3]
+        label = np.delete(label, 3, axis=1).transpose()
 
         if self.transform:
             data, label, pos = self.transform((data, label, pos))
 
-        return data, label.transpose(), pos
+        label = label.transpose()
+        label = label[4::9, :]
+        pos = pos[4::9]
+        data = data.reshape(batch_size, 9, -1)
+        return data, label, pos
