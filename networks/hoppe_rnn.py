@@ -50,13 +50,11 @@ class Hoppe(nn.Module):
 
     def forward(self, x, pos=None):
         batch_size = x.shape[0]
-        train = len(x.shape) == 2
         x = x.view(batch_size, -1, self.rnn.input_size)
         x, *_ = self.rnn(x)
         x = x.reshape(batch_size, -1)
         x = self.layers(x)
-
-        if self.spatial_pooling and not train:
+        if self.spatial_pooling and not self.training:
             # Apply pooling operation. Reduction by 9 in the 2nd dimension. (3x3 patches).
             x_ = (pos // 230).type(torch.LongTensor)
             y_ = (pos % 230).type(torch.LongTensor)

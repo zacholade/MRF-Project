@@ -118,7 +118,7 @@ class TrainingAlgorithm(LoggingMixin):
 
     def validate(self, data, labels, pos):
         self.model.eval()
-        if hasattr(self.model, 'spatial') and self.model.spatial:
+        if hasattr(self.model, 'spatial_pooling') and self.model.spatial_pooling:
             predicted = self.model.forward(data, pos)  # Need spatial information
         else:
             predicted = self.model.forward(data)
