@@ -136,15 +136,12 @@ class TrainingAlgorithm(LoggingMixin):
         training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
         (train_data, train_labels, train_file_lens, train_file_names),\
-            (valid_data, valid_labels, valid_file_lens, valid_file_names) = load_all_data_files(seq_len=self.seq_len,
-            file_limit=self.limit_number_files)
+            (valid_data, valid_labels, valid_file_lens, valid_file_names) = \
+            load_all_data_files(seq_len=self.seq_len,
+                                file_limit=self.limit_number_files)
 
-        if hasattr(self.model, "spatial_pooling") and self.model.spatial_pooling is not None:
-            training_dataset = PatchwiseDataset(train_data, train_labels, train_file_lens,
-                                                train_file_names, transform=training_transforms)
-        else:
-            training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
-                                                train_file_names, transform=training_transforms)
+        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
+                                            train_file_names, transform=training_transforms)
 
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
                                              valid_file_names, transform=validation_transforms)

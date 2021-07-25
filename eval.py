@@ -1,3 +1,5 @@
+import torch
+
 from models import *
 import argparse
 from config_parser import Configuration
@@ -16,9 +18,9 @@ checkpoint = torch.load(args.path)
 if args.network == 'cohen':
     model = CohenMLP(seq_len=config.seq_len)
 elif args.network == 'oksuz':
-    model = Oksuz(config.gru, input_size=config.lstm_input_size, hidden_size=config.lstm_hidden_size,
-                  seq_len=config.seq_len, num_layers=config.lstm_num_layers,
-                  bidirectional=config.lstm_bidirectional)
+    model = OksuzRNN(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
+                  seq_len=config.seq_len, num_layers=config.rnn_num_layers,
+                  bidirectional=config.rnn_bidirectional)
 else:
     import sys  # Should not be able to reach here as we provide a choice.
     print("Invalid network. Exiting...")

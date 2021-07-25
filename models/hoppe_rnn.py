@@ -50,31 +50,19 @@ class Hoppe(nn.Module):
 
     def forward(self, x, pos=None):
         batch_size = x.shape[0]
-        if self.training:
-            x = x.view(batch_size * 9, -1, self.rnn.input_size)
-            x, *_ = self.rnn(x)
-            x = x.reshape(batch_size * 9, -1)
-            x = self.layers(x)
-        else:
-            x = x.view(batch_size, -1, self.rnn.input_size)
-            x, *_ = self.rnn(x)
-            x = x.reshape(batch_size, -1)
-            x = self.layers(x)
-        if self.spatial_pooling is not None:
-            if self.training:
-                x = x.view(batch_size, 2, 3, 3)
-                x = self.spatial_pooling(x)
-                x = x[:, :, 1, 1]  # Get central pixel.
-            else:
-                # Apply pooling operation. Reduction by 9 in the 2nd dimension. (3x3 patches).
-                x_ = (pos // 230).type(torch.LongTensor)
-                y_ = (pos % 230).type(torch.LongTensor)
-                empty = torch.empty((1, 230, 230, 2), device='cuda' if torch.cuda.is_available() else 'cpu')
-                empty[:, x_, y_] = x
-                x = empty.transpose(3, 1)
-                x = self.spatial_pooling(x).squeeze(0)
-                x = x.transpose(2, 0)
-                x = x[x_, y_]
+        x = x.view(batch_size, -1, self.rnn.input_size)
+        x, *_ = self.rnn(x)
+        x = x.reshape(batch_size, -1)
+        x = self.layers(x)
+        if self.spatial_pooling is not None and not self.training:
+            x_ = (pos // 230).type(torch.LongTensor)
+            y_ = (pos % 230).type(torch.LongTensor)
+            empty = torch.empty((1, 230, 230, 2), device='cuda' if torch.cuda.is_available() else 'cpu')
+            empty[:, x_, y_] = x
+            x = empty.transpose(3, 1)
+            x = self.spatial_pooling(x).squeeze(0)
+            x = x.transpose(2, 0)
+            x = x[x_, y_]
         return x
 
 
