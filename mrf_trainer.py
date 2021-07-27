@@ -42,9 +42,10 @@ class TrainingAlgorithm(LoggingMixin):
                  plot_every: int = -1,
                  debug: bool = False,
                  limit_number_files: int = -1,
-                 limit_iterations: int = -1
+                 limit_iterations: int = -1,
+                 device: str = None
     ):
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.optimiser = optimiser
         self.lr_scheduler = lr_scheduler
@@ -104,17 +105,21 @@ class TrainingAlgorithm(LoggingMixin):
 
     def train(self, data, labels, pos):
         self.model.train()
-        if hasattr(self.model, 'spatial') and self.model.spatial:
+        if hasattr(self.model, 'spatial_pooling') and self.model.spatial_pooling:
             predicted = self.model.forward(data, pos)  # Need spatial information
         else:
             predicted = self.model.forward(data)
-        predicted = predicted[0] if isinstance(predicted, tuple) else predicted
+
+        attention = None
+        if isinstance(predicted, tuple):
+            attention = predicted[1]
+            predicted = predicted[0]
+
         loss = self.loss(predicted, labels)
-        self.logger.debug(f"Loss: {loss.item()}")
         self.optimiser.zero_grad()
         loss.backward()
         self.optimiser.step()
-        return predicted, loss
+        return predicted, loss, attention
 
     def validate(self, data, labels, pos):
         self.model.eval()
@@ -122,9 +127,14 @@ class TrainingAlgorithm(LoggingMixin):
             predicted = self.model.forward(data, pos)  # Need spatial information
         else:
             predicted = self.model.forward(data)
-        predicted = predicted[0] if isinstance(predicted, tuple) else predicted
+
+        attention = None
+        if isinstance(predicted, tuple):
+            attention = predicted[1]
+            predicted = predicted[0]
+
         loss = self.loss(predicted, labels)
-        return predicted, loss
+        return predicted, loss, attention
 
     def _should_break_early(self, current_iteration) -> bool:
         return self.debug and self.limit_iterations > 0 and \
@@ -140,11 +150,18 @@ class TrainingAlgorithm(LoggingMixin):
             load_all_data_files(seq_len=self.seq_len,
                                 file_limit=self.limit_number_files)
 
-        training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
-                                            train_file_names, transform=training_transforms)
+        if hasattr(self.model, "spatial_pooling") and self.model.spatial_pooling is not None:
+            training_dataset = PatchwiseDataset(train_data, train_labels, train_file_lens,
+                                                train_file_names, transform=training_transforms)
+        else:
+            training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
+                                                train_file_names, transform=training_transforms)
 
         validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
                                              valid_file_names, transform=validation_transforms)
+
+        total_iterations = self.limit_iterations if (self.debug and self.limit_iterations > 0) else\
+            int(np.floor(len(training_dataset) / self.batch_size))
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
             train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
@@ -158,11 +175,12 @@ class TrainingAlgorithm(LoggingMixin):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
-                if current_iteration % 1 == 0:
+                if current_iteration % max((total_iterations // 3), 1) == 0 or current_iteration == 2:
                     self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}")
-                predicted, loss = self.train(data, labels, pos)
+                    self.logger.debug(f"Loss: {loss}")
+                predicted, loss, attention = self.train(data, labels, pos)
                 self.data_logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
 
             if not skip_valid:
@@ -179,7 +197,7 @@ class TrainingAlgorithm(LoggingMixin):
                     self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
                                      f"{len(validate_loader)}")
                     data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-                    predicted, loss = self.validate(data, labels, pos)
+                    predicted, loss, attention = self.validate(data, labels, pos)
                     self.data_logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
 
                     if self.plot_every > 0 and epoch % self.plot_every == 0:
@@ -194,6 +212,12 @@ class TrainingAlgorithm(LoggingMixin):
                              epoch,
                              f"{self.export_dir}/Plots/{file_name}",
                              file_name)
+
+                        if attention is not None:
+                            plot(plot_fp,
+                                 attention.detach().cpu().numpy()[10000],
+                                 epoch,
+                                 f"{self.export_dir}")
 
             self.lr_scheduler.step()
             self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr())
@@ -236,10 +260,11 @@ def main(args, config, logger):
     export_dir = get_exports_dir(model, args)
     file_handler = logging.FileHandler(f"{export_dir}/logs.log")
     logger.addHandler(file_handler)
+    device = "cpu" if args.cpu else ("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using {args.network} model.")
     logger.info(f"Debug mode is {'enabled' if args.debug else 'disabled'}.")
     logger.info(f"There are {args.num_workers} sub-process workers loading training data.")
-    logger.info(f"Using device: {'cuda' if torch.cuda.is_available() else 'cpu'}.")
+    logger.info(f"Using device: {device}.")
     logger.info(f"Using {config.seq_len} dimensional fingerprints.")
     logger.info(f"Model: {model}")
 
@@ -260,7 +285,8 @@ def main(args, config, logger):
                                 plot_every=args.plot_every,
                                 debug=args.debug,
                                 limit_number_files=config.limit_number_files,
-                                limit_iterations=config.limit_iterations)
+                                limit_iterations=config.limit_iterations,
+                                device=device)
     trainer.loop(args.skip_valid)
 
 
@@ -274,6 +300,7 @@ if __name__ == "__main__":
     parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
     parser.add_argument('-notes', '-note', dest='notes', type=str)
+    parser.add_argument('-cpu', action='store_true', default=False)
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
 

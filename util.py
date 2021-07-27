@@ -193,11 +193,11 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     gc.collect()
 
 
-def plot_fp(fingerprint):
+def plot_fp(fingerprint, epoch: int = 0, save_dir=None):
+
     def _plot_fp(fp_):
         x = np.arange(len(fp_))
         plt.scatter(x, fp_, s=1)
-        plt.show()
 
     if isinstance(fingerprint, list):
         for fp in fingerprint:
@@ -205,7 +205,10 @@ def plot_fp(fingerprint):
     else:
         _plot_fp(fingerprint)
 
-    plt.show()
+    if save_dir is not None:
+        plt.savefig(f"{save_dir}/_epoch-{epoch}_fingerprint_attention")
+    else:
+        plt.show()
 
     # Clear the current axes.
     plt.cla()

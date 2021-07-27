@@ -49,29 +49,26 @@ class Hoppe(nn.Module):
             raise ValueError(f"Unknown pooling operation: {spatial_pooling}.")
 
     def forward(self, x, pos=None):
-        batch_size = x.shape[0]
+        batch_size = x.shape[0] if self.spatial_pooling is None or not self.training else x.shape[0] * 9
         x = x.view(batch_size, -1, self.rnn.input_size)
         x, *_ = self.rnn(x)
         x = x.reshape(batch_size, -1)
         x = self.layers(x)
-        if self.spatial_pooling is not None and not self.training:
-            x_ = (pos // 230).type(torch.LongTensor)
-            y_ = (pos % 230).type(torch.LongTensor)
-            empty = torch.empty((1, 230, 230, 2), device='cuda' if torch.cuda.is_available() else 'cpu')
-            empty[:, x_, y_] = x
-            x = empty.transpose(3, 1)
-            x = self.spatial_pooling(x).squeeze(0)
-            x = x.transpose(2, 0)
-            x = x[x_, y_]
+
+        if self.spatial_pooling:
+            batch_size = batch_size // 9
+            if self.training:  # Training deals with randomly selected 3x3 patches of pixels.
+                x = x.view(batch_size, 2, 3, 3)
+                x = self.spatial_pooling(x)
+                x = x[:, :, 1, 1]  # Get central pixel.
+            else:  # Eval deals with whole scans with batch_size = number of pixels in scan. Need to reshape to 230x230.
+                x_ = (pos // 230).type(torch.LongTensor)
+                y_ = (pos % 230).type(torch.LongTensor)
+                empty = torch.empty((1, 230, 230, 2), device='cuda' if torch.cuda.is_available() else 'cpu')
+                empty[:, x_, y_] = x
+                x = empty.transpose(3, 1)
+                x = self.spatial_pooling(x).squeeze(0)
+                # x = x.squeeze(0)
+                x = x.transpose(2, 0)
+                x = x[x_, y_]
         return x
-
-
-# i = torch.arange(0, 50).reshape(1, 2, 5, 5).type(torch.FloatTensor)
-# i[:, :, torch.LongTensor([2, 3, 4]), torch.LongTensor([2, 3, 4])] = 1
-# # i = F.pad(i, (1, 1, 1, 1))
-# print(i.squeeze(0))
-# print(i.shape)
-# pool = MedianPool2d(3, 1, padding=1)
-# pooled = pool(i)
-# print(pooled.shape)
-# print(pooled)
