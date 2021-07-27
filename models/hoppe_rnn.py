@@ -1,8 +1,7 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 
-from models.sub_layers import MedianPool2d
+from models.modules.median_pool import MedianPool2d
 
 
 class Hoppe(nn.Module):

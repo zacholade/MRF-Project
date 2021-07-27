@@ -17,6 +17,19 @@ def get_all_data_files():
     label_path = f"Data/Labels/"
     fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
     label_files = sorted([file for file in os.listdir(label_path) if not file.startswith(".")])
+
+    for file in fingerprint_files:
+        if file not in label_files:
+            print(file)
+
+    for file in label_files:
+        if file not in fingerprint_files:
+            raise RuntimeError(f"File: {file} not in other folder!!!")
+
+    for file in fingerprint_files:
+        if file not in label_files:
+            raise RuntimeError(f"File: {file} not in other folder!!!")
+
     if len(fingerprint_files) != len(label_files):
         raise RuntimeError("Differing data inside Data/Label folders!")
 

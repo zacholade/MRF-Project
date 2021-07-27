@@ -16,7 +16,7 @@ from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset
 from logging_manager import setup_logging, LoggingMixin
-from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention
+from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
@@ -252,6 +252,8 @@ def main(args, config, logger):
         model = RNNAttention(input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
                              batch_size=config.batch_size, seq_len=config.seq_len,
                              num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
+    elif args.network == 'song':
+        model = Song(seq_len=config.seq_len)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
