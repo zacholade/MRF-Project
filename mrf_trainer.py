@@ -175,7 +175,7 @@ class TrainingAlgorithm(LoggingMixin):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
-                if current_iteration % max((total_iterations // 3), 1) == 0 or current_iteration == 2:
+                if current_iteration % max((total_iterations // 5), 1) == 0 or current_iteration == 2:
                     self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}")
@@ -220,7 +220,7 @@ class TrainingAlgorithm(LoggingMixin):
                                  f"{self.export_dir}")
 
             self.lr_scheduler.step()
-            self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr())
+            self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr()[0])
             self.save(epoch)
             self.data_logger.on_epoch_end(epoch)
             self.logger.info(f"Epoch {epoch} complete")

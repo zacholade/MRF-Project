@@ -21,7 +21,6 @@ class ResNetLayer(nn.Module):
         return self.layers(x)
 
 
-
 class Song(nn.Module):
     def __init__(self, seq_len: int):
         super().__init__()
@@ -90,10 +89,6 @@ class Song(nn.Module):
         x = self.out(x)
         return x
 
-
     def _init_weights(self, m):
         if isinstance(m, nn.Conv1d):
             nn.init.kaiming_normal(m.weight, mode='fan_in')
-
-    def resnet_layer(self):
-        ...

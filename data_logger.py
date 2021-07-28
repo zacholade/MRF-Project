@@ -17,8 +17,9 @@ class DataLogger:
     all values in the list and save it to a csv file.
     """
     def __init__(self, directory: str):
-        self._log = defaultdict(list)
+        self._log = defaultdict(lambda: 0)
         self._directory = directory
+        self._iterations = defaultdict(lambda: 0)
 
     @property
     def directory(self) -> str:
@@ -33,13 +34,12 @@ class DataLogger:
         return f"{self.directory}/{self.filename}"
 
     def log_error(self, predicted, labels, loss, data_type: str):
+        batch_size = predicted.size(0)
+
         mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
         mean_sq_error = torch.mean(((labels - predicted) ** 2))
         root_mean_sq_error = torch.sqrt(mean_sq_error)
-        self.log(f"{data_type}_loss", (loss / len(labels)).cpu())
-        self.log(f"{data_type}_mape", mean_abs_perc_error.cpu())
-        self.log(f"{data_type}_mse", mean_sq_error.cpu())
-        self.log(f"{data_type}_rmse", root_mean_sq_error.cpu())
+        mean_abs_error = torch.abs(labels - predicted).sum() / batch_size
 
         t1_true, t2_true = torch.transpose(labels, 0, 1)
         t1_pred, t2_pred = torch.transpose(predicted, 0, 1)
@@ -47,19 +47,34 @@ class DataLogger:
         t1_mean_abs_perc_error = torch.mean(torch.abs(((t1_true - t1_pred) / t1_true))) * 100
         t1_mean_sq_error = torch.mean(((t1_true - t1_pred) ** 2))
         t1_root_mean_sq_error = torch.sqrt(t1_mean_sq_error)
-        self.log(f"{data_type}_t1_mape", t1_mean_abs_perc_error.cpu())
-        self.log(f"{data_type}_t1_mse", t1_mean_sq_error.cpu())
-        self.log(f"{data_type}_t1_rmse", t1_root_mean_sq_error.cpu())
+        t1_mean_abs_error = torch.abs(t1_true - t1_pred).sum() / batch_size
 
         t2_mean_abs_perc_error = torch.mean(torch.abs(((t2_true - t2_pred) / t2_true))) * 100
         t2_mean_sq_error = torch.mean(((t2_true - t2_pred) ** 2))
         t2_root_mean_sq_error = torch.sqrt(t2_mean_sq_error)
-        self.log(f"{data_type}_t2_mape", t2_mean_abs_perc_error.cpu())
-        self.log(f"{data_type}_t2_mse", t2_mean_sq_error.cpu())
-        self.log(f"{data_type}_t2_rmse", t2_root_mean_sq_error.cpu())
+        t2_mean_abs_error = torch.abs(t2_true - t2_pred).sum() / batch_size
+
+        self.log(f"{data_type}_loss", (loss / len(labels)).cpu().item())
+
+        self.log(f"{data_type}_mape", mean_abs_perc_error.cpu().item())
+        self.log(f"{data_type}_t1_mape", t1_mean_abs_perc_error.cpu().item())
+        self.log(f"{data_type}_t2_mape", t2_mean_abs_perc_error.cpu().item())
+
+        self.log(f"{data_type}_mse", mean_sq_error.cpu().item())
+        self.log(f"{data_type}_t1_mse", t1_mean_sq_error.cpu().item())
+        self.log(f"{data_type}_t2_mse", t2_mean_sq_error.cpu().item())
+
+        self.log(f"{data_type}_rmse", root_mean_sq_error.cpu().item())
+        self.log(f"{data_type}_t1_rmse", t1_root_mean_sq_error.cpu().item())
+        self.log(f"{data_type}_t2_rmse", t2_root_mean_sq_error.cpu().item())
+
+        self.log(f"{data_type}_mae", mean_abs_error.cpu().item())
+        self.log(f"{data_type}_mae", t1_mean_abs_error.cpu().item())
+        self.log(f"{data_type}_mae", t2_mean_abs_error.cpu().item())
 
     def log(self, field: str, value):
-        self._log[field].append(value)
+        self._log[field] += value
+        self._iterations[field] += 1
 
     def on_epoch_end(self, epoch: int):
         if not os.path.exists(self._directory):
@@ -67,7 +82,7 @@ class DataLogger:
 
         values = [str(epoch)]
         for field, value in self._log.items():
-            values.append(str(np.mean(value)))
+            values.append(str('%.8f' % (value / self._iterations[field])))
 
         logger.info(", ".join(['epoch', *self._log.keys()]))
         logger.info(", ".join(values))
@@ -78,4 +93,5 @@ class DataLogger:
                 writer.writerow(['epoch', *self._log.keys()])
             writer.writerow(values)
 
-        self._log = defaultdict(list)
+        self._log = defaultdict(lambda: 0)
+        self._iterations = defaultdict(lambda: 0)
