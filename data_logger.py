@@ -54,23 +54,23 @@ class DataLogger:
         t2_root_mean_sq_error = torch.sqrt(t2_mean_sq_error)
         t2_mean_abs_error = torch.abs(t2_true - t2_pred).sum() / batch_size
 
-        self.log(f"{data_type}_loss", (loss / len(labels)).cpu().item())
+        self.log(f"{data_type}_loss", (loss / len(labels)))
 
-        self.log(f"{data_type}_mape", mean_abs_perc_error.cpu().item())
-        self.log(f"{data_type}_t1_mape", t1_mean_abs_perc_error.cpu().item())
-        self.log(f"{data_type}_t2_mape", t2_mean_abs_perc_error.cpu().item())
+        self.log(f"{data_type}_mape", mean_abs_perc_error)
+        self.log(f"{data_type}_t1_mape", t1_mean_abs_perc_error)
+        self.log(f"{data_type}_t2_mape", t2_mean_abs_perc_error)
 
-        self.log(f"{data_type}_mse", mean_sq_error.cpu().item())
-        self.log(f"{data_type}_t1_mse", t1_mean_sq_error.cpu().item())
-        self.log(f"{data_type}_t2_mse", t2_mean_sq_error.cpu().item())
+        self.log(f"{data_type}_mse", mean_sq_error)
+        self.log(f"{data_type}_t1_mse", t1_mean_sq_error)
+        self.log(f"{data_type}_t2_mse", t2_mean_sq_error)
 
-        self.log(f"{data_type}_rmse", root_mean_sq_error.cpu().item())
-        self.log(f"{data_type}_t1_rmse", t1_root_mean_sq_error.cpu().item())
-        self.log(f"{data_type}_t2_rmse", t2_root_mean_sq_error.cpu().item())
+        self.log(f"{data_type}_rmse", root_mean_sq_error)
+        self.log(f"{data_type}_t1_rmse", t1_root_mean_sq_error)
+        self.log(f"{data_type}_t2_rmse", t2_root_mean_sq_error)
 
-        self.log(f"{data_type}_mae", mean_abs_error.cpu().item())
-        self.log(f"{data_type}_mae", t1_mean_abs_error.cpu().item())
-        self.log(f"{data_type}_mae", t2_mean_abs_error.cpu().item())
+        self.log(f"{data_type}_mae", mean_abs_error)
+        self.log(f"{data_type}_t1_mae", t1_mean_abs_error)
+        self.log(f"{data_type}_t2_mae", t2_mean_abs_error)
 
     def log(self, field: str, value):
         self._log[field] += value

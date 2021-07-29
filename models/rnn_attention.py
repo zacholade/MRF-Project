@@ -161,9 +161,30 @@ class RNNAttention(nn.Module):
         linear_dim = 2 * hidden_size if bidirectional else hidden_size
         lstm_out_feature_size = ((2 if bidirectional else 1) * seq_len * hidden_size) // input_size
         self.decoder = nn.Linear(lstm_out_feature_size, 2)
-        self.attention = Attention(linear_dim, "general")
+        self.attention = Attention(300, "general")
 
     def forward(self, x):
+        """
+                    query (:class:`torch.FloatTensor` [batch size, output length, dimensions]): Sequence of
+                queries to query the context.
+            context (:class:`torch.FloatTensor` [batch size, query length, dimensions]): Data
+                overwhich to apply the attention mechanism.
+        """
+        batch_size, seq_len = x.shape
+        print(x[0].shape)
+        i = torch.stft(x[0], seq_len, win_length=1)
+        print(i.shape)
+        import matplotlib.pyplot as plt
+        plt.matshow(i[:, :, 0])
+        plt.show()
+
+
+        foi = x[:, 5].unsqueeze(2)
+        print(foi.shape)
+        print(x.transpose(2, 1).shape)
+        attention_out, attention_weights = self.attention(x.transpose(2, 1), foi)
+        print(attention_out.shape)
+        print(attention_weights.shape)
         batch_size = x.shape[0]
         fp = x[0, :]
         # x = self.attention(x, x, x)

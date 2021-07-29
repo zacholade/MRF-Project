@@ -13,8 +13,8 @@ logger = logging.getLogger("mrf")
 
 
 def get_all_data_files():
-    fingerprint_path = f"Data/Data/"
-    label_path = f"Data/Labels/"
+    fingerprint_path = f"Data/Compressed/Data/"
+    label_path = f"Data/Compressed/Labels/"
     fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
     label_files = sorted([file for file in os.listdir(label_path) if not file.startswith(".")])
 

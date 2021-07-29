@@ -14,9 +14,10 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 
 from config_parser import Configuration
 from data_logger import DataLogger
-from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset
+from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchDataset
 from logging_manager import setup_logging, LoggingMixin
 from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song
+from models.spatial_temporal import SpatioTemporal
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
@@ -40,6 +41,9 @@ class TrainingAlgorithm(LoggingMixin):
                  num_training_dataloader_workers: int = 1,
                  num_testing_dataloader_workers: int = 1,
                  plot_every: int = -1,
+                 using_attention: bool = False,
+                 using_spatial: bool = False,
+                 valid_chunks: int = 1,
                  debug: bool = False,
                  limit_number_files: int = -1,
                  limit_iterations: int = -1,
@@ -60,6 +64,9 @@ class TrainingAlgorithm(LoggingMixin):
         self.num_testing_dataloader_workers = num_testing_dataloader_workers
 
         self.plot_every = plot_every  # Save a reconstruction plot every n epochs.
+        self.using_attention = using_attention
+        self.using_spatial = using_spatial
+        self.valid_chunks = valid_chunks
         self.debug = debug
         self.limit_number_files = limit_number_files
         self.limit_iterations = limit_iterations
@@ -105,7 +112,7 @@ class TrainingAlgorithm(LoggingMixin):
 
     def train(self, data, labels, pos):
         self.model.train()
-        if hasattr(self.model, 'spatial_pooling') and self.model.spatial_pooling:
+        if self.using_spatial:
             predicted = self.model.forward(data, pos)  # Need spatial information
         else:
             predicted = self.model.forward(data)
@@ -123,7 +130,23 @@ class TrainingAlgorithm(LoggingMixin):
 
     def validate(self, data, labels, pos):
         self.model.eval()
-        if hasattr(self.model, 'spatial_pooling') and self.model.spatial_pooling:
+        if self.using_spatial:
+            predicted = self.model.forward(data, pos)  # Need spatial information
+        else:
+            predicted = self.model.forward(data)
+
+        attention = None
+        if isinstance(predicted, tuple):
+            attention = predicted[1]
+            predicted = predicted[0]
+
+        loss = self.loss(predicted, labels)
+        return predicted, loss, attention
+
+    def spatial_validate(self, data, labels, pos):
+        self.model.eval()
+
+        if self.using_spatial:
             predicted = self.model.forward(data, pos)  # Need spatial information
         else:
             predicted = self.model.forward(data)
@@ -141,26 +164,94 @@ class TrainingAlgorithm(LoggingMixin):
                current_iteration % self.limit_iterations == 0 and \
                current_iteration != 0
 
+    def _spatial_valid_loop(self, epoch, validate_loader):
+        validate_set = iter(validate_loader)
+        current_chunk = 0  # The current chunk of one scan currently processing
+        chunk_loss = 0
+        chunk_predicted = None
+        chunk_labels = None
+        chunk_pos = None
+        for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+            current_chunk += 1
+            self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
+                             f"{len(validate_loader)}")
+            data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
+            predicted, loss, attention = self.spatial_validate(data, labels, pos)
+            chunk_loss += loss.detach().cpu().item()
+            chunk_predicted = predicted.detach().cpu() if chunk_predicted is None else \
+                torch.cat((chunk_predicted, predicted.detach().cpu()), 0)
+            chunk_labels = labels.detach().cpu() if chunk_labels is None else \
+                torch.cat((chunk_labels, labels.detach().cpu()), 0)
+            chunk_pos = pos.detach().cpu() if chunk_pos is None else \
+                torch.cat((chunk_pos, pos.detach().cpu()), 0)
+            if current_chunk % self.valid_chunks == 0:
+                self.data_logger.log_error(chunk_predicted,
+                                           chunk_labels,
+                                           chunk_loss, "valid")
+
+                if self.plot_every > 0 and epoch % self.plot_every == 0:
+                    if not os.path.exists(f"{self.export_dir}/Plots"):
+                        os.mkdir(f"{self.export_dir}/Plots")
+                    # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
+                    # join to it. When process is suspended, memory is forcibly released.
+                    plot(plot_maps,
+                         chunk_predicted.cpu().detach().numpy(),
+                         chunk_labels.cpu().numpy(),
+                         chunk_pos.cpu().numpy().astype(int),
+                         epoch,
+                         f"{self.export_dir}/Plots/{file_name}",
+                         file_name)
+
+                chunk_loss = 0
+                chunk_predicted = None
+                chunk_labels = None
+                chunk_pos = None
+
+    def _non_spatial_valid_loop(self, epoch, validate_loader):
+        validate_set = iter(validate_loader)
+        for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+            self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
+                             f"{len(validate_loader)}")
+            data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
+            predicted, loss, attention = self.validate(data, labels, pos)
+            self.data_logger.log_error(predicted.detach().cpu(),
+                                       labels.detach().cpu(),
+                                       loss.detach().cpu().item(), "valid")
+
+            if self.plot_every > 0 and epoch % self.plot_every == 0:
+                if not os.path.exists(f"{self.export_dir}/Plots"):
+                    os.mkdir(f"{self.export_dir}/Plots")
+                # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
+                # join to it. When process is suspended, memory is forcibly released.
+                plot(plot_maps,
+                     predicted.cpu().detach().numpy(),
+                     labels.cpu().numpy(),
+                     pos.cpu().numpy().astype(int),
+                     epoch,
+                     f"{self.export_dir}/Plots/{file_name}",
+                     file_name)
+
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
         training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
-        (train_data, train_labels, train_file_lens, train_file_names),\
+        (train_data, train_labels, train_file_lens, train_file_names), \
             (valid_data, valid_labels, valid_file_lens, valid_file_names) = \
             load_all_data_files(seq_len=self.seq_len,
                                 file_limit=self.limit_number_files)
 
-        if hasattr(self.model, "spatial_pooling") and self.model.spatial_pooling is not None:
-            training_dataset = PatchwiseDataset(train_data, train_labels, train_file_lens,
+        if self.using_spatial:
+            training_dataset = PatchwiseDataset(5, train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
+            validation_dataset = ScanPatchDataset(self.valid_chunks, 5, valid_data, valid_labels, valid_file_lens,
+                                                  valid_file_names, transform=validation_transforms)
         else:
             training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
+            validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
+                                                 valid_file_names, transform=validation_transforms)
 
-        validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
-                                             valid_file_names, transform=validation_transforms)
-
-        total_iterations = self.limit_iterations if (self.debug and self.limit_iterations > 0) else\
+        total_iterations = self.limit_iterations if (self.debug and self.limit_iterations > 0) else \
             int(np.floor(len(training_dataset) / self.batch_size))
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
@@ -181,7 +272,10 @@ class TrainingAlgorithm(LoggingMixin):
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}")
                     self.logger.debug(f"Loss: {loss}")
                 predicted, loss, attention = self.train(data, labels, pos)
-                self.data_logger.log_error(predicted.detach(), labels.detach(), loss.detach(), data_type="train")
+                self.data_logger.log_error(predicted.detach().cpu(),
+                                           labels.detach().cpu(),
+                                           loss.detach().cpu().item(),
+                                           data_type="train")
 
             if not skip_valid:
                 self.logger.info(f"Done training. Starting validation for epoch {epoch}.")
@@ -191,33 +285,10 @@ class TrainingAlgorithm(LoggingMixin):
                                                               shuffle=False,
                                                               pin_memory=True,
                                                               num_workers=self.num_testing_dataloader_workers)
-                validate_set = iter(validate_loader)
-
-                for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
-                    self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
-                                     f"{len(validate_loader)}")
-                    data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-                    predicted, loss, attention = self.validate(data, labels, pos)
-                    self.data_logger.log_error(predicted.detach(), labels.detach(), loss.detach(), "valid")
-
-                    if self.plot_every > 0 and epoch % self.plot_every == 0:
-                        if not os.path.exists(f"{self.export_dir}/Plots"):
-                            os.mkdir(f"{self.export_dir}/Plots")
-                        # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
-                        # join to it. When process is suspended, memory is forcibly released.
-                        plot(plot_maps,
-                             predicted.cpu().detach().numpy(),
-                             labels.cpu().numpy(),
-                             pos.cpu().numpy().astype(int),
-                             epoch,
-                             f"{self.export_dir}/Plots/{file_name}",
-                             file_name)
-
-                        if attention is not None:
-                            plot(plot_fp,
-                                 attention.detach().cpu().numpy()[10000],
-                                 epoch,
-                                 f"{self.export_dir}")
+                if self.using_spatial:
+                    self._spatial_valid_loop(epoch, validate_loader)
+                else:
+                    self._non_spatial_valid_loop(epoch, validate_loader)
 
             self.lr_scheduler.step()
             self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr()[0])
@@ -225,6 +296,10 @@ class TrainingAlgorithm(LoggingMixin):
             self.data_logger.on_epoch_end(epoch)
             self.logger.info(f"Epoch {epoch} complete")
 
+        if self.using_spatial:
+            self._spatial_valid_loop(skip_valid, training_dataset, validation_dataset)
+        else:
+            self._non_spatial_valid_loop(skip_valid, training_dataset, validation_dataset)
 
 def main(args, config, logger):
     repo = git.Repo(search_parent_directories=True)
@@ -235,6 +310,7 @@ def main(args, config, logger):
 
     # If true, return type from model.forward() is ((batch_size, labels), attention)
     using_attention = False
+    using_spatial = False
 
     if args.network == 'cohen':
         model = CohenMLP(seq_len=config.seq_len)
@@ -254,6 +330,9 @@ def main(args, config, logger):
                              num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
     elif args.network == 'song':
         model = Song(seq_len=config.seq_len)
+    elif args.network == 'st':
+        using_spatial = True
+        model = SpatioTemporal(seq_len=config.seq_len)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
@@ -285,6 +364,9 @@ def main(args, config, logger):
                                 num_training_dataloader_workers=args.num_workers,
                                 num_testing_dataloader_workers=args.num_workers // 2,
                                 plot_every=args.plot_every,
+                                using_attention=using_attention,
+                                using_spatial=using_spatial,
+                                valid_chunks=args.chunks,
                                 debug=args.debug,
                                 limit_number_files=config.limit_number_files,
                                 limit_iterations=config.limit_iterations,
@@ -294,7 +376,7 @@ def main(args, config, logger):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention']
+    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'st']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', '-d', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
@@ -303,6 +385,7 @@ if __name__ == "__main__":
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
     parser.add_argument('-notes', '-note', dest='notes', type=str)
     parser.add_argument('-cpu', action='store_true', default=False)
+    parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
 
