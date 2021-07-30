@@ -153,8 +153,6 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: b
                                           test_data_file_names, test_label_file_names,
                                           max_size, seq_len)
 
-
-
 def get_exports_dir(model, args):
     if not os.path.exists("Exports"):
         os.mkdir("Exports")

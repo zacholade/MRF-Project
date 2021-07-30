@@ -9,7 +9,7 @@ from util import plot, plot_fp
 
 
 class SpatioTemporal(nn.Module):
-    def __init__(self, seq_len: int = 1000):
+    def __init__(self, seq_len: int = 1000, patch_size: int = 5):
         super().__init__()
         self.conv1x1 = self.conv_block(in_channels=seq_len, out_channels=200,
                                        kernel_size=1, stride=1, padding='valid',
@@ -26,6 +26,8 @@ class SpatioTemporal(nn.Module):
         self.conv_out = self.conv_block(in_channels=64, out_channels=2,
                                         kernel_size=1, stride=1, padding='valid',
                                         batch_norm=False, activation=None)
+
+        self.patch_size = patch_size
 
     def conv_block(self, in_channels, out_channels, kernel_size, stride: int, padding: str,
                    batch_norm: bool, activation: Union[str, None] = 'none'):

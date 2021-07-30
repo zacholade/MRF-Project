@@ -63,6 +63,10 @@ class Configuration:
         return self._config.get(f"{self.network_name}Hyperparameters", "spatial_pooling")
 
     @property
+    def patch_size(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "patch_size")
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1

@@ -110,12 +110,9 @@ class TrainingAlgorithm(LoggingMixin):
         return cls(model, optimiser, loss, number_epochs_to_do, batch_size,
                    starting_epoch=epoch)
 
-    def train(self, data, labels, pos):
+    def train(self, data, labels):
         self.model.train()
-        if self.using_spatial:
-            predicted = self.model.forward(data, pos)  # Need spatial information
-        else:
-            predicted = self.model.forward(data)
+        predicted = self.model.forward(data)
 
         attention = None
         if isinstance(predicted, tuple):
@@ -128,12 +125,9 @@ class TrainingAlgorithm(LoggingMixin):
         self.optimiser.step()
         return predicted, loss, attention
 
-    def validate(self, data, labels, pos):
+    def validate(self, data, labels):
         self.model.eval()
-        if self.using_spatial:
-            predicted = self.model.forward(data, pos)  # Need spatial information
-        else:
-            predicted = self.model.forward(data)
+        predicted = self.model.forward(data)
 
         attention = None
         if isinstance(predicted, tuple):
@@ -143,13 +137,9 @@ class TrainingAlgorithm(LoggingMixin):
         loss = self.loss(predicted, labels)
         return predicted, loss, attention
 
-    def spatial_validate(self, data, labels, pos):
+    def spatial_validate(self, data, labels):
         self.model.eval()
-
-        if self.using_spatial:
-            predicted = self.model.forward(data, pos)  # Need spatial information
-        else:
-            predicted = self.model.forward(data)
+        predicted = self.model.forward(data)
 
         attention = None
         if isinstance(predicted, tuple):
@@ -173,10 +163,12 @@ class TrainingAlgorithm(LoggingMixin):
         chunk_pos = None
         for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
             current_chunk += 1
-            self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
-                             f"{len(validate_loader)}")
+            self.logger.info(f"Epoch: {epoch}, Validation scan: {(current_iteration // self.valid_chunks) + 1} / "
+                             f"{len(validate_loader) // self.valid_chunks}. "
+                             f"Chunk: {((current_chunk - 1) % self.valid_chunks) + 1} / "
+                             f"{self.valid_chunks}")
             data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-            predicted, loss, attention = self.spatial_validate(data, labels, pos)
+            predicted, loss, attention = self.spatial_validate(data, labels)
             chunk_loss += loss.detach().cpu().item()
             chunk_predicted = predicted.detach().cpu() if chunk_predicted is None else \
                 torch.cat((chunk_predicted, predicted.detach().cpu()), 0)
@@ -206,7 +198,6 @@ class TrainingAlgorithm(LoggingMixin):
                 chunk_predicted = None
                 chunk_labels = None
                 chunk_pos = None
-                chunk_pos = None
 
     def _non_spatial_valid_loop(self, epoch, validate_loader):
         validate_set = iter(validate_loader)
@@ -214,7 +205,7 @@ class TrainingAlgorithm(LoggingMixin):
             self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
                              f"{len(validate_loader)}")
             data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-            predicted, loss, attention = self.validate(data, labels, pos)
+            predicted, loss, attention = self.validate(data, labels)
             self.data_logger.log_error(predicted.detach().cpu(),
                                        labels.detach().cpu(),
                                        loss.detach().cpu().item(), "valid")
@@ -242,9 +233,9 @@ class TrainingAlgorithm(LoggingMixin):
                 load_all_data_files(seq_len=self.seq_len,
                                     file_limit=self.limit_number_files,
                                     compressed=False)
-            training_dataset = PatchwiseDataset(5, train_pos, train_data, train_labels, train_file_lens,
+            training_dataset = PatchwiseDataset(self.model.patch_size, train_pos, train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
-            validation_dataset = ScanPatchDataset(self.valid_chunks, 5, valid_pos, valid_data, valid_labels, valid_file_lens,
+            validation_dataset = ScanPatchDataset(self.valid_chunks, self.model.patch_size, valid_pos, valid_data, valid_labels, valid_file_lens,
                                                   valid_file_names, transform=validation_transforms)
         else:
             (train_data, train_labels, train_file_lens, train_file_names), \
@@ -275,9 +266,9 @@ class TrainingAlgorithm(LoggingMixin):
                 if current_iteration % max((total_iterations // 5), 1) == 0 or current_iteration == 2:
                     self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
-                                     f"LR: {self.lr_scheduler.get_last_lr()[0]}")
-                    self.logger.debug(f"Loss: {loss}")
-                predicted, loss, attention = self.train(data, labels, pos)
+                                     f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
+                                     f"Loss: {loss}")
+                predicted, loss, attention = self.train(data, labels)
                 self.data_logger.log_error(predicted.detach().cpu(),
                                            labels.detach().cpu(),
                                            loss.detach().cpu().item(),
@@ -302,10 +293,6 @@ class TrainingAlgorithm(LoggingMixin):
             self.data_logger.on_epoch_end(epoch)
             self.logger.info(f"Epoch {epoch} complete")
 
-        if self.using_spatial:
-            self._spatial_valid_loop(skip_valid, training_dataset, validation_dataset)
-        else:
-            self._non_spatial_valid_loop(skip_valid, training_dataset, validation_dataset)
 
 def main(args, config, logger):
     repo = git.Repo(search_parent_directories=True)
@@ -316,6 +303,7 @@ def main(args, config, logger):
 
     # If true, return type from model.forward() is ((batch_size, labels), attention)
     using_attention = False
+    # If true input is fed as patches.
     using_spatial = False
 
     if args.network == 'cohen':
@@ -326,9 +314,11 @@ def main(args, config, logger):
                       bidirectional=config.rnn_bidirectional)
     elif args.network == 'hoppe':
         spatial_pooling = None if config.spatial_pooling.lower() == 'none' else config.spatial_pooling.lower()
+        using_spatial = True if spatial_pooling is not None else False
         model = Hoppe(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
                       seq_len=config.seq_len, num_layers=config.rnn_num_layers,
-                      bidirectional=config.rnn_bidirectional, spatial_pooling=spatial_pooling)
+                      bidirectional=config.rnn_bidirectional, spatial_pooling=spatial_pooling,
+                      patch_size=config.patch_size)
     elif args.network == 'rnn_attention':
         using_attention = True
         model = RNNAttention(input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
@@ -338,7 +328,7 @@ def main(args, config, logger):
         model = Song(seq_len=config.seq_len)
     elif args.network == 'st':
         using_spatial = True
-        model = SpatioTemporal(seq_len=config.seq_len)
+        model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
