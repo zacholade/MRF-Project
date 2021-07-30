@@ -66,6 +66,8 @@ class ApplyPD(BaseTransform):
         data *= dn[:, np.newaxis]  # Un-normalise data by the dict norm value per pixel
         data *= pd[:, np.newaxis]  # Apply PD to the un-normalised data
         new_dict_norm = np.sqrt(np.sum(np.abs(np.square(data)), axis=1))  # Calculate new normalisation value per fp.
+        new_dict_norm[new_dict_norm == 0] = 1  # If a value is 0, replace it with 1 or else divide by 0 in next line.
         data /= new_dict_norm[:, np.newaxis]  # Apply normalisation value to data
         # new_sum_squares = np.sum(data**2, axis=1)  # To assert sum of squares == 1
+        # print(new_sum_squares)
         return data, label, pos

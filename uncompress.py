@@ -13,10 +13,8 @@ for file_name in file_names:
     x = (pos // 230).astype(int)
     y = (pos % 230).astype(int)
 
-    label = np.delete(label, 3, axis=1)
-
     new_data = np.zeros((230, 230, 1000))
-    new_label = np.zeros((230, 230, 4))
+    new_label = np.zeros((230, 230, 5))
     new_data[x, y] = data
     new_label[x, y] = label
 

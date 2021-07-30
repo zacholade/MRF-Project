@@ -5,14 +5,18 @@ import torch.utils.data
 
 
 class PixelwiseDataset(torch.utils.data.Dataset):
+    """
+    Given a collection of scans, randomly fingerprints and labels on a pixelwise
+    basis. Can be combined with a random sampler to get random fingerprints.
+    """
     def __init__(self, data, labels, file_lens, file_names, transform: Callable = None):
         super().__init__()
         self.transform = transform
-
         self.labels = labels
         self.data = data
         self._file_lens = file_lens
         self._file_names = file_names
+
         self._cum_file_lens = np.cumsum(self._file_lens)
         self._num_total_pixels = np.sum(self._file_lens)
 
@@ -42,7 +46,9 @@ class PixelwiseDataset(torch.utils.data.Dataset):
 
 
 class ScanwiseDataset(PixelwiseDataset):
-    """1 index = 1 entire scan."""
+    """
+    Takes in a collection of compressed scans, one index returns one entire scan in a compressed form.
+    """
     def __getitem__(self, index):
         data = self.data[index][:self._file_lens[index]]  # second index just removes the padding applied.
         label = self.labels[index][:self._file_lens[index]]
@@ -68,61 +74,43 @@ class ScanwiseDataset(PixelwiseDataset):
 
 
 class PatchwiseDataset(PixelwiseDataset):
-    _3x3_offsets = np.array([-231, -230, -229, -1, 0, 1, 229, 230, 231])
-    _5x5_offsets = np.array([
-        -462, -461, -460, -459, -258,
-        -232, -231, -230, -229, -228,
-        -2, -1, 0, 1, 2,
-        228, 229, 230, 231, 232,
-        458, 459, 460, 461, 462])
-
-    def __init__(self, patch_size: int, *args, **kwargs):
+    """
+    When provided with an index, this dataset will return a spatial collection of neighbouring
+    fingerprints about that location. One patch of fingerprints per fingerprint.
+    Eg with a patchsize of 5 (that is 5x5). Each index will return 25 fingerprints/labels.
+    """
+    def __init__(self, patch_size: int, pos, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        pw = patch_size // 2  # padding width on each side. In-case patch goes out of frame of the image.
+        self.pw = pw
+        self.labels = np.pad(self.labels, pad_width=((0, 0), (pw, pw), (pw, pw), (0, 0)))
+        self.data = np.pad(self.data, pad_width=((0, 0), (pw, pw), (pw, pw), (0, 0)))
         self.patch_size = patch_size ** 2
-        self.offsets = self._3x3_offsets if patch_size == 3 else self._5x5_offsets
-        if patch_size not in [3, 5]:
-            raise ValueError("Invalid patch size")
+        self.pos = pos
 
     def __len__(self):
         return self._num_total_pixels
 
-    def _get_surrounding_datapoint_indexes(self, file_index, datapoint_index):
-        batch_size = file_index.shape[0]
-        # the -2 value gets the second to last value in the 3rd dimension (pos).
-        central_pixel_index = self.labels[file_index, datapoint_index, -2]
-
-        # Create two arrays ith the shape (batch_size, patch_size)
-        # 9 = 3x3 array from top left to top right and then down for each row.
-        # Pixel index is used to store all the datapoints we will use.
-        # The central pixel index is just used to apply a mask to any pixel indexes
-        # which go out of bounds once applying the _offsets matrix (defined above).
-        pixel_index = np.repeat(central_pixel_index[:, np.newaxis], self.patch_size, axis=1)
-        central_pixel_index = np.repeat(central_pixel_index[:, np.newaxis], self.patch_size, axis=1)
-
-        # Apply the offsets as per the _offsets matrix defined above.
-        pixel_index = pixel_index + self.offsets
-        pos = self.labels[file_index, :, -2]
-
-        # Any pixels out of bounds (oob)?
-        oob_mask = np.invert((pixel_index[..., None] == pos[:, None]).any(2))
-        # If so, we can just set the pixel index as the central pixel of the spatial area.
-        pixel_index[oob_mask] = central_pixel_index[oob_mask]
-
-        # Now we have pixelpoint indexes. This following line converts it to datapoint indexes.
-        # np.where gets the index position of all trues. It returns a tuple for each dimension:
-        # which in our case is (batch_size, 9, num of datapoints per scan with padding (+-27000 or something).
-        # We only want the last dimension so we index [2] on it.
-        datapoint_index = np.where(pos[:, None] == pixel_index[..., None])[2]
-        return datapoint_index
-
     def __getitem__(self, index):
-        index = np.asarray(index)
+        index = np.array(index)
         batch_size = index.shape[0]
         file_index = np.argmin((index[:, np.newaxis] // self._cum_file_lens), axis=1)
         datapoint_index = index % (self._cum_file_lens[file_index - 1])
-        spatial_datapoint_index = self._get_surrounding_datapoint_indexes(file_index, datapoint_index)
-        data = self.data[np.repeat(file_index, self.patch_size), spatial_datapoint_index]
-        label = self.labels[np.repeat(file_index, self.patch_size), spatial_datapoint_index]
+        pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
+        x = pixel_index // 230 + self.pw  # apply padding width offset!
+        y = pixel_index % 230 + self.pw
+        patch_diameter = int(np.sqrt(self.patch_size))
+        patch_radius = patch_diameter // 2
+        spatial_xs = np.repeat(x, self.patch_size) + np.tile(np.tile(np.arange(
+            0 - patch_radius, 1 + patch_radius, 1), patch_diameter), batch_size)
+        spatial_ys = np.repeat(y, self.patch_size) + np.tile(np.repeat(np.arange(
+            0 - patch_radius, 1 + patch_radius, 1), patch_diameter), batch_size)
+        data = self.data[np.repeat(file_index, self.patch_size),
+                         spatial_xs,
+                         spatial_ys, :]
+        label = self.labels[np.repeat(file_index, self.patch_size),
+                            spatial_xs,
+                            spatial_ys, :]
         pos = label[:, 3]
         label = np.delete(label, 3, axis=1).transpose()
 
@@ -130,15 +118,20 @@ class PatchwiseDataset(PixelwiseDataset):
             data, label, pos = self.transform((data, label, pos))
 
         label = label.transpose()
-        label = label[int(np.floor(self.patch_size // 2))::self.patch_size, :]
-        pos = pos[int(np.floor(self.patch_size // 2))::self.patch_size]
-        data = data.reshape(batch_size, -1, int(np.sqrt(self.patch_size)), int(np.sqrt(self.patch_size)))
+        label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel
+        pos = pos[int(self.patch_size // 2)::self.patch_size]  # Pos is the central pixel
+        data = data.reshape(batch_size, patch_diameter, patch_diameter, -1).transpose((0, 3, 1, 2))
         return data, label, pos
 
 
 class ScanPatchDataset(PatchwiseDataset):
-    def __init__(self, chunks, patch_size, data, labels, *args, **kwargs):
-        super().__init__(patch_size, data, labels, *args, **kwargs)
+    """
+    Extends Patchwise Dataset but now indexes are alligned with scans. Because patch sampling
+    increases the number of pixels by a factor of patchsize squared, you can provide a chunking
+    parameter. A chunk of a whole scan will be returned. Num fingerprints = Scan size // chunk size.
+    """
+    def __init__(self, chunks: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.chunks = chunks
 
     def __len__(self):
@@ -154,10 +147,21 @@ class ScanPatchDataset(PatchwiseDataset):
             batch_size = self._file_lens[file_index] // self.chunks
         file_name = self._file_names[file_index]
         datapoint_index = np.arange(batch_size) + (chunk * (self._file_lens[file_index] // self.chunks))
-        file_index = np.repeat(np.asarray(file_index), batch_size)
-        spatial_datapoint_index = self._get_surrounding_datapoint_indexes(file_index, datapoint_index)
-        data = self.data[np.repeat(file_index, self.patch_size), spatial_datapoint_index]
-        label = self.labels[np.repeat(file_index, self.patch_size), spatial_datapoint_index]
+        pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
+        x = pixel_index // 230 + self.pw  # apply padding width offset!
+        y = pixel_index % 230 + self.pw
+        patch_diameter = int(np.sqrt(self.patch_size))
+        patch_radius = patch_diameter // 2
+        spatial_xs = np.repeat(x, self.patch_size) + np.tile(np.tile(np.arange(
+            0 - patch_radius, 1 + patch_radius, 1), patch_diameter), batch_size)
+        spatial_ys = np.repeat(y, self.patch_size) + np.tile(np.repeat(np.arange(
+            0 - patch_radius, 1 + patch_radius, 1), patch_diameter), batch_size)
+        data = self.data[np.repeat(file_index, self.patch_size * batch_size),
+                         spatial_xs,
+                         spatial_ys, :]
+        label = self.labels[np.repeat(file_index, self.patch_size * batch_size),
+                            spatial_xs,
+                            spatial_ys, :]
         pos = label[:, 3]
         label = np.delete(label, 3, axis=1).transpose()
 
@@ -165,35 +169,7 @@ class ScanPatchDataset(PatchwiseDataset):
             data, label, pos = self.transform((data, label, pos))
 
         label = label.transpose()
-        label = label[int(np.floor(self.patch_size // 2))::self.patch_size, :]
-        pos = pos[int(np.floor(self.patch_size // 2))::self.patch_size]
-        data = data.reshape(batch_size, -1, int(np.sqrt(self.patch_size)), int(np.sqrt(self.patch_size)))
+        label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel
+        pos = pos[int(self.patch_size // 2)::self.patch_size]  # Pos is the central pixel
+        data = data.reshape(batch_size, patch_diameter, patch_diameter, -1).transpose((0, 3, 1, 2))
         return data, label, pos, file_name
-
-    def _get_surrounding_datapoint_indexes(self, file_index, datapoint_index):
-        # the -2 value gets the second to last value in the 3rd dimension (pos).
-        central_pixel_index = self.labels[file_index, datapoint_index, -2]
-
-        # Create two arrays ith the shape (batch_size, patch_size)
-        # 9 = 3x3 array from top left to top right and then down for each row.
-        # Pixel index is used to store all the datapoints we will use.
-        # The central pixel index is just used to apply a mask to any pixel indexes
-        # which go out of bounds once applying the _offsets matrix (defined above).
-        pixel_index = np.repeat(central_pixel_index[:, np.newaxis], self.patch_size, axis=1)
-        central_pixel_index = np.repeat(central_pixel_index[:, np.newaxis], self.patch_size, axis=1)
-
-        # Apply the offsets as per the _offsets matrix defined above.
-        pixel_index = pixel_index + self.offsets
-        pos = self.labels[file_index, :, -2]
-
-        # Any pixels out of bounds (oob)?
-        oob_mask = np.invert((pixel_index[..., None] == pos[:, None]).any(2))
-        # If so, we can just set the pixel index as the central pixel of the spatial area.
-        pixel_index[oob_mask] = central_pixel_index[oob_mask]
-
-        # Now we have pixelpoint indexes. This following line converts it to datapoint indexes.
-        # np.where gets the index position of all trues. It returns a tuple for each dimension:
-        # which in our case is (batch_size, 9, num of datapoints per scan with padding (+-27000 or something).
-        # We only want the last dimension so we index [2] on it.
-        datapoint_index = np.where(pos[:, None] == pixel_index[..., None])[2]
-        return datapoint_index

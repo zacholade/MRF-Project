@@ -206,6 +206,7 @@ class TrainingAlgorithm(LoggingMixin):
                 chunk_predicted = None
                 chunk_labels = None
                 chunk_pos = None
+                chunk_pos = None
 
     def _non_spatial_valid_loop(self, epoch, validate_loader):
         validate_set = iter(validate_loader)
@@ -235,17 +236,22 @@ class TrainingAlgorithm(LoggingMixin):
         validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
         training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
-        (train_data, train_labels, train_file_lens, train_file_names), \
-            (valid_data, valid_labels, valid_file_lens, valid_file_names) = \
-            load_all_data_files(seq_len=self.seq_len,
-                                file_limit=self.limit_number_files)
-
         if self.using_spatial:
-            training_dataset = PatchwiseDataset(5, train_data, train_labels, train_file_lens,
+            (train_data, train_labels, train_file_lens, train_file_names, train_pos), \
+            (valid_data, valid_labels, valid_file_lens, valid_file_names, valid_pos) = \
+                load_all_data_files(seq_len=self.seq_len,
+                                    file_limit=self.limit_number_files,
+                                    compressed=False)
+            training_dataset = PatchwiseDataset(5, train_pos, train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
-            validation_dataset = ScanPatchDataset(self.valid_chunks, 5, valid_data, valid_labels, valid_file_lens,
+            validation_dataset = ScanPatchDataset(self.valid_chunks, 5, valid_pos, valid_data, valid_labels, valid_file_lens,
                                                   valid_file_names, transform=validation_transforms)
         else:
+            (train_data, train_labels, train_file_lens, train_file_names), \
+            (valid_data, valid_labels, valid_file_lens, valid_file_names) = \
+                load_all_data_files(seq_len=self.seq_len,
+                                    file_limit=self.limit_number_files,
+                                    compressed=True)
             training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
             validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,

@@ -12,9 +12,10 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 logger = logging.getLogger("mrf")
 
 
-def get_all_data_files():
-    fingerprint_path = f"Data/Compressed/Data/"
-    label_path = f"Data/Compressed/Labels/"
+def get_all_data_files(compressed: bool):
+    compressed = "Compressed" if compressed else "Uncompressed"
+    fingerprint_path = f"Data/{compressed}/Data/"
+    label_path = f"Data/{compressed}/Labels/"
     fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
     label_files = sorted([file for file in os.listdir(label_path) if not file.startswith(".")])
 
@@ -44,34 +45,9 @@ def get_all_data_files():
     return fingerprint_files, label_files
 
 
-def load_all_data_files(seq_len: int = 1000, file_limit: int = -1):
-    data_file_names, label_file_names = get_all_data_files()
-
-    if file_limit > 0:
-        # If we want to limit number of files open (only for memory saving purposes (testing)).
-        data_file_names = data_file_names[:file_limit]
-        label_file_names = label_file_names[:file_limit]
-
-    # Find the max shape so we can apply padding in the following for loop instead of a separate for loop.
-    files = [np.load(label_file_name, mmap_mode='r').shape[0] for label_file_name in label_file_names]
-    max_size = max(files)
-    num_files = len(files)
-
-    shuffle_indices = np.arange(num_files)
-    np.random.shuffle(shuffle_indices)
-    num_train = int(num_files / 24 * 21)  # With 120 files splits train/test into 105 and 15 respectfully
-    num_test = num_files - num_train
-
-    if num_test == 0 and num_train > 1:
-        num_test += 1
-        num_train -= 1
-
-    train_indices, test_indices = shuffle_indices[-num_train:], shuffle_indices[:num_test]
-    train_data_file_names = [data_file_names[i] for i in train_indices]
-    train_label_file_names = [label_file_names[i] for i in train_indices]
-    test_data_file_names = [data_file_names[i] for i in test_indices]
-    test_label_file_names = [label_file_names[i] for i in test_indices]
-
+def _load_all_compressed_data_files(train_data_file_names, train_label_file_names,
+                                    test_data_file_names, test_label_file_names,
+                                    max_size: int, seq_len: int = 1000):
     def gen_data(data_names, label_names):
         data_files = np.zeros((len(data_names), max_size, seq_len))
         label_files = np.zeros((len(label_names), max_size, 5))
@@ -101,6 +77,82 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1):
         return data_files, label_files, np.asarray(file_lens), file_names
 
     return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)
+
+
+def _load_all_uncompressed_data_files(train_data_file_names, train_label_file_names,
+                                      test_data_file_names, test_label_file_names,
+                                      max_size, seq_len: int = 1000):
+    def gen_data(data_names, label_names):
+        data_files = None
+        label_files = None
+        file_lens = []
+
+        poses = np.zeros((len(label_names), max_size, 1), dtype=int)
+        for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
+            logger.info(f"Loading file {i+1} / {len(label_names)}.")
+            data_file = np.load(data_file_name)
+            data_file = data_file[:, :, :seq_len]  # Limit fingerprint length if specified.
+            label_file = np.load(label_file_name)
+            file_lens.append(np.count_nonzero(label_file[:, :, 2] != 0))
+
+            m = np.ma.masked_equal(label_file[:, :, 2], 0)
+            pos_masked = np.ma.masked_array(label_file[:, :, 3], m.mask)
+            pos_compressed = np.ma.compressed(pos_masked)
+            padded_pos = np.zeros((max_size, 1))
+            padded_pos[:pos_compressed.shape[0], 0] = pos_compressed
+            poses[i] = padded_pos
+
+            data_file = np.expand_dims(data_file, axis=0)
+            label_file = np.expand_dims(label_file, axis=0)
+            if data_files is None:
+                data_files, label_files = data_file, label_file
+            else:
+                data_files = np.concatenate((data_files, data_file), axis=0)
+                label_files = np.concatenate((label_files, label_file), axis=0)
+
+        # Removes the path and the file extension from the file names. Left with just the literal file name.
+        file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))
+        return data_files, label_files, np.asarray(file_lens), file_names, poses
+
+    return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)
+
+
+def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: bool = True):
+    data_file_names, label_file_names = get_all_data_files(compressed)
+
+    if file_limit > 0:
+        # If we want to limit number of files open (only for memory saving purposes (testing)).
+        data_file_names = data_file_names[:file_limit]
+        label_file_names = label_file_names[:file_limit]
+
+    # Find the max shape so we can apply padding in the following for loop instead of a separate for loop.
+    files = [np.load(label_file_name, mmap_mode='r').shape[0] for label_file_name in
+             list(map(lambda x: x.replace("Uncompressed", "Compressed"), label_file_names))]
+    max_size = max(files)
+    num_files = len(files)
+
+    shuffle_indices = np.arange(num_files)
+    np.random.shuffle(shuffle_indices)
+    num_train = int(num_files / 24 * 21)  # With 120 files splits train/test into 105 and 15 respectfully
+    num_test = num_files - num_train
+
+    if num_test == 0 and num_train > 1:
+        num_test += 1
+        num_train -= 1
+
+    train_indices, test_indices = shuffle_indices[-num_train:], shuffle_indices[:num_test]
+    train_data_file_names = [data_file_names[i] for i in train_indices]
+    train_label_file_names = [label_file_names[i] for i in train_indices]
+    test_data_file_names = [data_file_names[i] for i in test_indices]
+    test_label_file_names = [label_file_names[i] for i in test_indices]
+
+    return _load_all_compressed_data_files(train_data_file_names, train_label_file_names,
+                                           test_data_file_names, test_label_file_names,
+                                           max_size, seq_len) if compressed else \
+        _load_all_uncompressed_data_files(train_data_file_names, train_label_file_names,
+                                          test_data_file_names, test_label_file_names,
+                                          max_size, seq_len)
+
 
 
 def get_exports_dir(model, args):
