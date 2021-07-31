@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import sys
 
 import git
 import numpy as np
@@ -18,13 +19,11 @@ from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPa
 from logging_manager import setup_logging, LoggingMixin
 from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song
 from models.balsiger import Balsiger
-from models.r2plus1classifier import R2Plus1DClassifier
+from models.r2plus1d import R2Plus1D
 from models.spatio_temporal import SpatioTemporal
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
-from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
+from util import load_all_data_files, plot, get_exports_dir, plot_maps
 
-
-import sys
 np.set_printoptions(threshold=sys.maxsize)
 
 
@@ -227,7 +226,7 @@ class TrainingAlgorithm(LoggingMixin):
 
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
-        training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
+        training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.005), OnlyT1T2()])
 
         if self.using_spatial:
             (train_data, train_labels, train_file_lens, train_file_names, train_pos), \
@@ -265,7 +264,7 @@ class TrainingAlgorithm(LoggingMixin):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
-                if current_iteration % max((total_iterations // 20), 1) == 0 or current_iteration == 2:
+                if current_iteration % max((total_iterations // 50), 1) == 0 or current_iteration == 2:
                     self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
@@ -337,7 +336,7 @@ def main(args, config, logger):
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
     elif args.network == 'r2plus1d':
         using_spatial = True
-        model = R2Plus1DClassifier(config.patch_size, 2, layer_sizes=(1, 1, 1, 1))
+        model = R2Plus1D(patch_size=config.patch_size, factorise=config.factorise)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")

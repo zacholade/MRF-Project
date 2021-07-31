@@ -67,6 +67,11 @@ class Configuration:
         return self._config.getint(f"{self.network_name}Hyperparameters", "patch_size")
 
     @property
+    def factorise(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "factorise")
+
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1
