@@ -345,6 +345,7 @@ def main(args, config, logger):
     logger.info(f"Using device: {device}.")
     logger.info(f"Using {config.seq_len} dimensional fingerprints.")
     logger.info(f"Model: {model}")
+    logger.info(f"Args: {args}")
 
     optimiser = optim.Adam(model.parameters(), lr=config.lr)
     lr_scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=config.lr_step_size, gamma=config.lr_gamma)
