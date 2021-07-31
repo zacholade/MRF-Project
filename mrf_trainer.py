@@ -301,6 +301,7 @@ def main(args, config, logger):
         import sys
         sys.exit(0)
 
+    file_limit = config.limit_number_files if args.file_limit < 0 else args.file_limit
     # If true, return type from model.forward() is ((batch_size, labels), attention)
     using_attention = False
     # If true input is fed as patches.
@@ -364,7 +365,7 @@ def main(args, config, logger):
                                 using_spatial=using_spatial,
                                 valid_chunks=args.chunks,
                                 debug=args.debug,
-                                limit_number_files=config.limit_number_files,
+                                limit_number_files=file_limit,
                                 limit_iterations=config.limit_iterations,
                                 device=device)
     trainer.loop(args.skip_valid)
@@ -382,6 +383,8 @@ if __name__ == "__main__":
     parser.add_argument('-notes', '-note', dest='notes', type=str)
     parser.add_argument('-cpu', action='store_true', default=False)
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
+    parser.add_argument('-file_limit', default=-1, type=int)
+
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
 
