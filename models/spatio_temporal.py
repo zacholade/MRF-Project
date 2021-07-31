@@ -5,19 +5,19 @@ from torch import nn
 
 
 class SpatioTemporal(nn.Module):
-    def __init__(self, seq_len: int = 1000, patch_size: int = 5):
+    def __init__(self, seq_len: int = 1000, patch_size: int = 3):
         super().__init__()
         self.conv1x1 = self.conv_block(in_channels=seq_len, out_channels=200,
                                        kernel_size=1, stride=1, padding='valid',
-                                       dropout=True, batch_norm=True, activation="relu")
+                                       dropout=False, batch_norm=True, activation="relu")
 
         self.conv3x3 = self.conv_block(in_channels=200, out_channels=32,
                                        kernel_size=3, stride=1, padding='valid',
-                                       dropout=True, batch_norm=True, activation="relu")
+                                       dropout=False, batch_norm=True, activation="relu")
 
         self.conv5x5 = self.conv_block(in_channels=200, out_channels=32,
                                        kernel_size=5, stride=1, padding='valid',
-                                       dropout=True, batch_norm=True, activation="relu")
+                                       dropout=False, batch_norm=True, activation="relu")
 
         self.conv_out = self.conv_block(in_channels=64, out_channels=2,
                                         kernel_size=1, stride=1, padding='valid',
