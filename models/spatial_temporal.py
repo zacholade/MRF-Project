@@ -39,7 +39,6 @@ class SpatioTemporal(nn.Module):
         return nn.Sequential(*modules)
 
     def forward(self, x):
-        print(x.shape)
         x = self.conv1x1(x)
         conv3x3 = self.conv3x3(x[:, :, 1:4, 1:4])
         conv5x5 = self.conv5x5(x)
