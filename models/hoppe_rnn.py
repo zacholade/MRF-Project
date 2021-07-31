@@ -53,7 +53,7 @@ class Hoppe(nn.Module):
 
         self.patch_size = patch_size
 
-    def forward(self, x, pos=None):
+    def forward(self, x):
         batch_size = x.shape[0] if self.spatial_pooling is None else x.shape[0] * (self.patch_size ** 2)
         x = x.reshape(batch_size, -1, self.rnn.input_size)
         x, *_ = self.rnn(x)

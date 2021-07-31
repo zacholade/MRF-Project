@@ -83,9 +83,9 @@ def _load_all_uncompressed_data_files(train_data_file_names, train_label_file_na
                                       test_data_file_names, test_label_file_names,
                                       max_size, seq_len: int = 1000):
     def gen_data(data_names, label_names):
-        data_files = None
-        label_files = None
         file_lens = []
+        data_files = np.zeros((len(data_names), 230, 230, seq_len))
+        label_files = np.zeros((len(label_names), 230, 230, 5))
 
         poses = np.zeros((len(label_names), max_size, 1), dtype=int)
         for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
@@ -104,11 +104,8 @@ def _load_all_uncompressed_data_files(train_data_file_names, train_label_file_na
 
             data_file = np.expand_dims(data_file, axis=0)
             label_file = np.expand_dims(label_file, axis=0)
-            if data_files is None:
-                data_files, label_files = data_file, label_file
-            else:
-                data_files = np.concatenate((data_files, data_file), axis=0)
-                label_files = np.concatenate((label_files, label_file), axis=0)
+            data_files[i] = data_file
+            label_files[i] = label_file
 
         # Removes the path and the file extension from the file names. Left with just the literal file name.
         file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))

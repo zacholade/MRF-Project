@@ -38,7 +38,7 @@ class SpatioTemporal(nn.Module):
         activation == 'relu' and modules.append(nn.ReLU())
         return nn.Sequential(*modules)
 
-    def forward(self, x, pos):
+    def forward(self, x):
         x = self.conv1x1(x)
         conv3x3 = self.conv3x3(x[:, :, 1:4, 1:4])
         conv5x5 = self.conv5x5(x)
