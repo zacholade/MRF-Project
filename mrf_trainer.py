@@ -18,6 +18,7 @@ from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPa
 from logging_manager import setup_logging, LoggingMixin
 from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song
 from models.balsiger import Balsiger
+from models.r2plus1classifier import R2Plus1DClassifier
 from models.spatio_temporal import SpatioTemporal
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
@@ -264,7 +265,7 @@ class TrainingAlgorithm(LoggingMixin):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
-                if current_iteration % max((total_iterations // 5), 1) == 0 or current_iteration == 2:
+                if current_iteration % max((total_iterations // 20), 1) == 0 or current_iteration == 2:
                     self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
@@ -334,6 +335,9 @@ def main(args, config, logger):
     elif args.network == 'st':
         using_spatial = True
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
+    elif args.network == 'r2plus1d':
+        using_spatial = True
+        model = R2Plus1DClassifier(config.patch_size, 2, layer_sizes=(1, 1, 1, 1))
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
@@ -378,7 +382,7 @@ def main(args, config, logger):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st']
+    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st', 'r2plus1d']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', '-d', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
