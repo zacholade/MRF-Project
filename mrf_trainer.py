@@ -17,7 +17,8 @@ from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchDataset
 from logging_manager import setup_logging, LoggingMixin
 from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song
-from models.spatial_temporal import SpatioTemporal
+from models.balsiger import Balsiger
+from models.spatio_temporal import SpatioTemporal
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
@@ -327,6 +328,9 @@ def main(args, config, logger):
                              num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
     elif args.network == 'song':
         model = Song(seq_len=config.seq_len)
+    elif args.network == 'balsiger':
+        using_spatial = True
+        model = Balsiger(seq_len=config.seq_len, patch_size=config.patch_size)
     elif args.network == 'st':
         using_spatial = True
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
@@ -374,7 +378,7 @@ def main(args, config, logger):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'st']
+    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-debug', '-d', action='store_true', default=False)
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)

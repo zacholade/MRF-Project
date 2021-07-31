@@ -2,13 +2,9 @@ from typing import Union
 
 import torch
 from torch import nn
-import torch.nn.functional as F
-import numpy as np
-import math
-from util import plot, plot_fp
 
 
-class SpatioTemporal(nn.Module):
+class Balsiger(nn.Module):
     def __init__(self, seq_len: int = 1000, patch_size: int = 5):
         super().__init__()
         self.conv1x1 = self.conv_block(in_channels=seq_len, out_channels=200,
