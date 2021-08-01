@@ -272,7 +272,8 @@ class TrainingAlgorithm(LoggingMixin):
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
                                      f"Loss: {loss}")
-                    plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
+                    if attention is not None:
+                        plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
                 predicted, loss, attention = self.train(data, labels)
 
                 data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
