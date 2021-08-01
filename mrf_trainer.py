@@ -205,28 +205,29 @@ class TrainingAlgorithm(LoggingMixin):
 
     def _non_spatial_valid_loop(self, epoch, validate_loader):
         validate_set = iter(validate_loader)
-        for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
-            self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
-                             f"{len(validate_loader)}")
-            data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-            predicted, loss, attention = self.validate(data, labels)
-            data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
-            self.data_logger.log_error(predicted.detach().cpu(),
-                                       labels.detach().cpu(),
-                                       loss.detach().cpu().item(), "valid")
+        with torch.no_grad():
+            for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+                self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
+                                 f"{len(validate_loader)}")
+                data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
+                predicted, loss, attention = self.validate(data, labels)
+                data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
+                self.data_logger.log_error(predicted.detach().cpu(),
+                                           labels.detach().cpu(),
+                                           loss.detach().cpu().item(), "valid")
 
-            if self.plot_every > 0 and epoch % self.plot_every == 0:
-                if not os.path.exists(f"{self.export_dir}/Plots"):
-                    os.mkdir(f"{self.export_dir}/Plots")
-                # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
-                # join to it. When process is suspended, memory is forcibly released.
-                plot(plot_maps,
-                     predicted.cpu().detach().numpy(),
-                     labels.cpu().numpy(),
-                     pos.cpu().numpy().astype(int),
-                     epoch,
-                     f"{self.export_dir}/Plots/{file_name}",
-                     file_name)
+                if self.plot_every > 0 and epoch % self.plot_every == 0:
+                    if not os.path.exists(f"{self.export_dir}/Plots"):
+                        os.mkdir(f"{self.export_dir}/Plots")
+                    # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
+                    # join to it. When process is suspended, memory is forcibly released.
+                    plot(plot_maps,
+                         predicted.cpu().detach().numpy(),
+                         labels.cpu().numpy(),
+                         pos.cpu().numpy().astype(int),
+                         epoch,
+                         f"{self.export_dir}/Plots/{file_name}",
+                         file_name)
 
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
