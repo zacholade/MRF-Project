@@ -280,7 +280,6 @@ class TrainingAlgorithm(LoggingMixin):
                                            labels.detach().cpu(),
                                            loss.detach().cpu().item(),
                                            data_type="train")
-                self.data_logger.log_attention(attention.detach().cpu().numpy(), epoch)
 
             if not skip_valid:
                 self.logger.info(f"Done training. Starting validation for epoch {epoch}.")
