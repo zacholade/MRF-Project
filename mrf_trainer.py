@@ -22,7 +22,7 @@ from models.balsiger import Balsiger
 from models.r2plus1d import R2Plus1D
 from models.spatio_temporal import SpatioTemporal
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
-from util import load_all_data_files, plot, get_exports_dir, plot_maps
+from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -85,6 +85,7 @@ class TrainingAlgorithm(LoggingMixin):
         torch.save({
             'epoch': epoch,
             'model_state_dict': self.model.state_dict(),
+            'model': self.model,
             'optimiser_state_dict': self.optimiser.state_dict(),
             'lr_scheduler': self.lr_scheduler.state_dict(),
             'loss': self.loss,
@@ -170,6 +171,7 @@ class TrainingAlgorithm(LoggingMixin):
                              f"{self.valid_chunks}")
             data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
             predicted, loss, attention = self.spatial_validate(data, labels)
+            data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
             chunk_loss += loss.detach().cpu().item()
             chunk_predicted = predicted.detach().cpu() if chunk_predicted is None else \
                 torch.cat((chunk_predicted, predicted.detach().cpu()), 0)
@@ -207,6 +209,7 @@ class TrainingAlgorithm(LoggingMixin):
                              f"{len(validate_loader)}")
             data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
             predicted, loss, attention = self.validate(data, labels)
+            data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
             self.data_logger.log_error(predicted.detach().cpu(),
                                        labels.detach().cpu(),
                                        loss.detach().cpu().item(), "valid")
@@ -269,7 +272,9 @@ class TrainingAlgorithm(LoggingMixin):
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
                                      f"Loss: {loss}")
+                    plot(plot_fp, attention[0].detach().cpu().numpy(), epoch*1000000 + current_iteration, save_dir=self.export_dir)
                 predicted, loss, attention = self.train(data, labels)
+                data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
                 self.data_logger.log_error(predicted.detach().cpu(),
                                            labels.detach().cpu(),
                                            loss.detach().cpu().item(),
@@ -295,6 +300,48 @@ class TrainingAlgorithm(LoggingMixin):
             self.logger.info(f"Epoch {epoch} complete")
 
 
+def get_network(network: str):
+    using_spatial = False  # If true input is fed as patches.
+    using_attention = False
+
+    if network == 'cohen':
+        model = CohenMLP(seq_len=config.seq_len)
+    elif network == 'oksuz_rnn':
+        model = OksuzRNN(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
+                      seq_len=config.seq_len, num_layers=config.rnn_num_layers,
+                      bidirectional=config.rnn_bidirectional)
+    elif network == 'hoppe':
+        spatial_pooling = None if config.spatial_pooling.lower() == 'none' else config.spatial_pooling.lower()
+        using_spatial = True if spatial_pooling is not None else False
+        model = Hoppe(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
+                      seq_len=config.seq_len, num_layers=config.rnn_num_layers,
+                      bidirectional=config.rnn_bidirectional, spatial_pooling=spatial_pooling,
+                      patch_size=config.patch_size)
+    elif network == 'rnn_attention':
+        using_attention = True
+        model = RNNAttention(input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
+                             batch_size=config.batch_size, seq_len=config.seq_len,
+                             num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
+    elif network == 'song':
+        model = Song(seq_len=config.seq_len)
+    elif network == 'balsiger':
+        using_spatial = True
+        model = Balsiger(seq_len=config.seq_len, patch_size=config.patch_size)
+    elif network == 'st':
+        using_spatial = True
+        model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
+    elif network == 'r2plus1d':
+        using_spatial = True
+        using_attention = config.use_attention
+        model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
+                         attention=config.use_attention)
+    else:
+        import sys  # Should not be able to reach here as we provide a choice.
+        print("Invalid network. Exiting...")
+        sys.exit(1)
+    return model, using_spatial, using_attention
+
+
 def main(args, config, logger):
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
@@ -304,43 +351,7 @@ def main(args, config, logger):
 
     file_limit = config.limit_number_files if args.file_limit < 0 else args.file_limit
     # If true, return type from model.forward() is ((batch_size, labels), attention)
-    using_attention = False
-    # If true input is fed as patches.
-    using_spatial = False
-
-    if args.network == 'cohen':
-        model = CohenMLP(seq_len=config.seq_len)
-    elif args.network == 'oksuz_rnn':
-        model = OksuzRNN(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
-                      seq_len=config.seq_len, num_layers=config.rnn_num_layers,
-                      bidirectional=config.rnn_bidirectional)
-    elif args.network == 'hoppe':
-        spatial_pooling = None if config.spatial_pooling.lower() == 'none' else config.spatial_pooling.lower()
-        using_spatial = True if spatial_pooling is not None else False
-        model = Hoppe(config.gru, input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
-                      seq_len=config.seq_len, num_layers=config.rnn_num_layers,
-                      bidirectional=config.rnn_bidirectional, spatial_pooling=spatial_pooling,
-                      patch_size=config.patch_size)
-    elif args.network == 'rnn_attention':
-        using_attention = True
-        model = RNNAttention(input_size=config.rnn_input_size, hidden_size=config.rnn_hidden_size,
-                             batch_size=config.batch_size, seq_len=config.seq_len,
-                             num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
-    elif args.network == 'song':
-        model = Song(seq_len=config.seq_len)
-    elif args.network == 'balsiger':
-        using_spatial = True
-        model = Balsiger(seq_len=config.seq_len, patch_size=config.patch_size)
-    elif args.network == 'st':
-        using_spatial = True
-        model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
-    elif args.network == 'r2plus1d':
-        using_spatial = True
-        model = R2Plus1D(patch_size=config.patch_size, factorise=config.factorise)
-    else:
-        import sys  # Should not be able to reach here as we provide a choice.
-        print("Invalid network. Exiting...")
-        sys.exit(1)
+    model, using_spatial, using_attention = get_network(args.network)
 
     export_dir = get_exports_dir(model, args)
     file_handler = logging.FileHandler(f"{export_dir}/logs.log")
@@ -382,16 +393,16 @@ def main(args, config, logger):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st', 'r2plus1d']
-    parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
-    parser.add_argument('-debug', '-d', action='store_true', default=False)
-    parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)
-    parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)
-    parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)
-    parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)
-    parser.add_argument('-notes', '-note', dest='notes', type=str)
-    parser.add_argument('-cpu', action='store_true', default=False)
+    parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)  # Which network to use.
+    parser.add_argument('-debug', '-d', action='store_true', default=False)  # Debug mode. Ignore git warning, get debug logging and custom file limit for debugging.
+    parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)  # Number of data loader workers.
+    parser.add_argument('-skip_valid', '-no_valid', '-nv', dest='skip_valid', action='store_true', default=False)  # Don't validate.
+    parser.add_argument('-plot', '-plot_every', '-plotevery', dest='plot_every', default=1, type=int)  # Plot brain scans every n epochs.
+    parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)  # Doesn't plot brain scans.
+    parser.add_argument('-notes', '-note', dest='notes', type=str)  # Add a note. Used in file dir name.
+    parser.add_argument('-cpu', action='store_true', default=False)  # Force to use cpu.
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
-    parser.add_argument('-file_limit', default=-1, type=int)
+    parser.add_argument('-file_limit', default=-1, type=int)  # Limit number of scans to open at one time.
 
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every

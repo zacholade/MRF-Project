@@ -70,6 +70,9 @@ class Configuration:
     def factorise(self) -> bool:
         return self._config.getboolean(f"{self.network_name}Hyperparameters", "factorise")
 
+    @property
+    def use_attention(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "use_attention")
 
     @property
     def limit_iterations(self) -> int:

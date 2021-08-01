@@ -81,10 +81,12 @@ class PatchwiseDataset(PixelwiseDataset):
     """
     def __init__(self, patch_size: int, pos, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        pw = patch_size // 2  # padding width on each side. In-case patch goes out of frame of the image.
-        self.pw = pw
-        self.labels = np.pad(self.labels, pad_width=((0, 0), (pw, pw), (pw, pw), (0, 0)))
-        self.data = np.pad(self.data, pad_width=((0, 0), (pw, pw), (pw, pw), (0, 0)))
+        padding_width = patch_size // 2  # padding width on each side. In-case patch goes out of frame of the image.
+        self.padding_width = padding_width
+        self.labels = np.pad(self.labels,
+                             pad_width=((0, 0), (padding_width, padding_width), (padding_width, padding_width), (0, 0)))
+        self.data = np.pad(self.data,
+                           pad_width=((0, 0), (padding_width, padding_width), (padding_width, padding_width), (0, 0)))
         self.patch_size = patch_size ** 2
         self.pos = pos
 
@@ -97,8 +99,8 @@ class PatchwiseDataset(PixelwiseDataset):
         file_index = np.argmin((index[:, np.newaxis] // self._cum_file_lens), axis=1)
         datapoint_index = index % (self._cum_file_lens[file_index - 1])
         pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
-        x = pixel_index // 230 + self.pw  # apply padding width offset!
-        y = pixel_index % 230 + self.pw
+        x = pixel_index // 230 + self.padding_width  # apply padding width offset!
+        y = pixel_index % 230 + self.padding_width
         patch_diameter = int(np.sqrt(self.patch_size))
         patch_radius = patch_diameter // 2
         spatial_xs = np.repeat(x, self.patch_size) + np.tile(np.tile(np.arange(
@@ -148,8 +150,8 @@ class ScanPatchDataset(PatchwiseDataset):
         file_name = self._file_names[file_index]
         datapoint_index = np.arange(batch_size) + (chunk * (self._file_lens[file_index] // self.chunks))
         pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
-        x = pixel_index // 230 + self.pw  # apply padding width offset!
-        y = pixel_index % 230 + self.pw
+        x = pixel_index // 230 + self.padding_width  # apply padding width offset!
+        y = pixel_index % 230 + self.padding_width
         patch_diameter = int(np.sqrt(self.patch_size))
         patch_radius = patch_diameter // 2
         spatial_xs = np.repeat(x, self.patch_size) + np.tile(np.tile(np.arange(
