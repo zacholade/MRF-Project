@@ -158,63 +158,32 @@ class TrainingAlgorithm(LoggingMixin):
 
     def _spatial_valid_loop(self, epoch, validate_loader):
         validate_set = iter(validate_loader)
+        self.model.eval()
         current_chunk = 0  # The current chunk of one scan currently processing
         chunk_loss = 0
         chunk_predicted = None
         chunk_labels = None
         chunk_pos = None
-        with torch.no_grad():
-            for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
-                current_chunk += 1
-                self.logger.info(f"Epoch: {epoch}, Validation scan: {(current_iteration // self.valid_chunks) + 1} / "
-                                 f"{len(validate_loader) // self.valid_chunks}. "
-                                 f"Chunk: {((current_chunk - 1) % self.valid_chunks) + 1} / "
-                                 f"{self.valid_chunks}")
-                data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-                predicted, loss, attention = self.spatial_validate(data, labels)
-                data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
-                chunk_loss += loss.detach().cpu().item()
-                chunk_predicted = predicted.detach().cpu() if chunk_predicted is None else \
-                    torch.cat((chunk_predicted, predicted.detach().cpu()), 0)
-                chunk_labels = labels.detach().cpu() if chunk_labels is None else \
-                    torch.cat((chunk_labels, labels.detach().cpu()), 0)
-                chunk_pos = pos.detach().cpu() if chunk_pos is None else \
-                    torch.cat((chunk_pos, pos.detach().cpu()), 0)
-                if current_chunk % self.valid_chunks == 0:
-                    self.data_logger.log_error(chunk_predicted,
-                                               chunk_labels,
-                                               chunk_loss, "valid")
-
-                    if self.plot_every > 0 and epoch % self.plot_every == 0:
-                        if not os.path.exists(f"{self.export_dir}/Plots"):
-                            os.mkdir(f"{self.export_dir}/Plots")
-                        # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
-                        # join to it. When process is suspended, memory is forcibly released.
-                        plot(plot_maps,
-                             chunk_predicted.cpu().detach().numpy(),
-                             chunk_labels.cpu().numpy(),
-                             chunk_pos.cpu().numpy().astype(int),
-                             epoch,
-                             f"{self.export_dir}/Plots/{file_name}",
-                             file_name)
-
-                    chunk_loss = 0
-                    chunk_predicted = None
-                    chunk_labels = None
-                    chunk_pos = None
-
-    def _non_spatial_valid_loop(self, epoch, validate_loader):
-        validate_set = iter(validate_loader)
-        with torch.no_grad():
-            for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
-                self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
-                                 f"{len(validate_loader)}")
-                data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
-                predicted, loss, attention = self.validate(data, labels)
-                data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
-                self.data_logger.log_error(predicted.detach().cpu(),
-                                           labels.detach().cpu(),
-                                           loss.detach().cpu().item(), "valid")
+        for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+            current_chunk += 1
+            self.logger.info(f"Epoch: {epoch}, Validation scan: {(current_iteration // self.valid_chunks) + 1} / "
+                             f"{len(validate_loader) // self.valid_chunks}. "
+                             f"Chunk: {((current_chunk - 1) % self.valid_chunks) + 1} / "
+                             f"{self.valid_chunks}")
+            data, labels = data.to(self.device), labels.to(self.device)
+            predicted, loss, attention = self.spatial_validate(data, labels)
+            data, labels = data.cpu(), labels.cpu()
+            chunk_loss += loss.detach().cpu().item()
+            chunk_predicted = predicted.detach().cpu() if chunk_predicted is None else \
+                torch.cat((chunk_predicted, predicted.detach().cpu()), 0)
+            chunk_labels = labels.detach().cpu() if chunk_labels is None else \
+                torch.cat((chunk_labels, labels.detach().cpu()), 0)
+            chunk_pos = pos.detach().cpu() if chunk_pos is None else \
+                torch.cat((chunk_pos, pos.detach().cpu()), 0)
+            if current_chunk % self.valid_chunks == 0:
+                self.data_logger.log_error(chunk_predicted,
+                                           chunk_labels,
+                                           chunk_loss, "valid")
 
                 if self.plot_every > 0 and epoch % self.plot_every == 0:
                     if not os.path.exists(f"{self.export_dir}/Plots"):
@@ -222,12 +191,53 @@ class TrainingAlgorithm(LoggingMixin):
                     # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
                     # join to it. When process is suspended, memory is forcibly released.
                     plot(plot_maps,
-                         predicted.cpu().detach().numpy(),
-                         labels.cpu().numpy(),
-                         pos.cpu().numpy().astype(int),
+                         chunk_predicted.cpu().detach().numpy(),
+                         chunk_labels.cpu().numpy(),
+                         chunk_pos.cpu().numpy().astype(int),
                          epoch,
                          f"{self.export_dir}/Plots/{file_name}",
                          file_name)
+
+                chunk_loss = 0
+                chunk_predicted = None
+                chunk_labels = None
+                chunk_pos = None
+
+    def _non_spatial_valid_loop(self, epoch, validate_loader):
+        validate_set = iter(validate_loader)
+        self.model.eval()
+        for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+            self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
+                             f"{len(validate_loader)}")
+            # Cut batch size in half
+            batch_size = data.shape[0]
+            data1, labels1 = data[:(batch_size // 2)], labels[:(batch_size // 2)]
+            data2, labels2 = data[(-batch_size // 2):], labels[(-batch_size // 2):]
+            data1, labels1 = data1.to(self.device), labels1.to(self.device)
+            predicted1, loss1, attention1 = self.validate(data1, labels1)
+            data1, labels1 = data1.cpu(), labels1.cpu()
+            data2, labels2 = data2.to(self.device), labels2.to(self.device)
+            predicted2, loss2, attention2 = self.validate(data2, labels2)
+            data2, labels2 = data2.cpu(), labels2.cpu()
+            predicted = torch.cat((predicted1, predicted2), 0)
+            loss = torch.cat((predicted1, predicted2), 0)
+
+            self.data_logger.log_error(predicted.detach().cpu(),
+                                       labels.detach().cpu(),
+                                       loss.detach().cpu().item(), "valid")
+
+            if self.plot_every > 0 and epoch % self.plot_every == 0:
+                if not os.path.exists(f"{self.export_dir}/Plots"):
+                    os.mkdir(f"{self.export_dir}/Plots")
+                # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
+                # join to it. When process is suspended, memory is forcibly released.
+                plot(plot_maps,
+                     predicted.cpu().detach().numpy(),
+                     labels.cpu().numpy(),
+                     pos.cpu().numpy().astype(int),
+                     epoch,
+                     f"{self.export_dir}/Plots/{file_name}",
+                     file_name)
 
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
@@ -264,14 +274,14 @@ class TrainingAlgorithm(LoggingMixin):
                                                            batch_size=self.batch_size, drop_last=True))
             train_set = iter(train_loader)
             for current_iteration, (data, labels, pos) in enumerate(train_set):
-                data, labels, pos = data.to(self.device), labels.to(self.device), pos.to(self.device)
+                data, labels = data.to(self.device), labels.to(self.device)
                 if self._should_break_early(current_iteration):
                     break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                 current_iteration += 1
                 predicted, loss, attention = self.train(data, labels)
 
-                data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
+                data, labels = data.cpu(), labels.cpu()
                 self.data_logger.log_error(predicted.detach().cpu(),
                                            labels.detach().cpu(),
                                            loss.detach().cpu().item(),
@@ -286,17 +296,18 @@ class TrainingAlgorithm(LoggingMixin):
                         plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
 
             if not skip_valid:
-                self.logger.info(f"Done training. Starting validation for epoch {epoch}.")
-                validate_loader = torch.utils.data.DataLoader(validation_dataset,
-                                                              batch_size=1,
-                                                              collate_fn=ScanwiseDataset.collate_fn,
-                                                              shuffle=False,
-                                                              pin_memory=True,
-                                                              num_workers=self.num_testing_dataloader_workers)
-                if self.using_spatial:
-                    self._spatial_valid_loop(epoch, validate_loader)
-                else:
-                    self._non_spatial_valid_loop(epoch, validate_loader)
+                with torch.no_grad():
+                    self.logger.info(f"Done training. Starting validation for epoch {epoch}.")
+                    validate_loader = torch.utils.data.DataLoader(validation_dataset,
+                                                                  batch_size=1,
+                                                                  collate_fn=ScanwiseDataset.collate_fn,
+                                                                  shuffle=False,
+                                                                  pin_memory=True,
+                                                                  num_workers=self.num_testing_dataloader_workers)
+                    if self.using_spatial:
+                        self._spatial_valid_loop(epoch, validate_loader)
+                    else:
+                        self._non_spatial_valid_loop(epoch, validate_loader)
 
             self.lr_scheduler.step()
             self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr()[0])
