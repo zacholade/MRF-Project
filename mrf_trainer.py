@@ -272,13 +272,15 @@ class TrainingAlgorithm(LoggingMixin):
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
                                      f"Loss: {loss}")
-                    plot(plot_fp, attention[0].detach().cpu().numpy(), epoch*1000000 + current_iteration, save_dir=self.export_dir)
+                    plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}" + current_iteration, save_dir=self.export_dir)
                 predicted, loss, attention = self.train(data, labels)
+
                 data, labels, pos = data.cpu(), labels.cpu(), pos.cpu()
                 self.data_logger.log_error(predicted.detach().cpu(),
                                            labels.detach().cpu(),
                                            loss.detach().cpu().item(),
                                            data_type="train")
+                self.data_logger.log_attention(attention.detach().cpu().numpy(), epoch)
 
             if not skip_valid:
                 self.logger.info(f"Done training. Starting validation for epoch {epoch}.")

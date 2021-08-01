@@ -67,7 +67,7 @@ class ChannelAttention(nn.Module):
         max_out = self.linear(self.max_pool(x).squeeze(2).squeeze(2))
         attention_weights = self.sig(avg_out + max_out).view(x.shape[0], x.shape[1], 1, 1)
         x *= attention_weights
-        return x, attention_weights
+        return x, attention_weights.view(x.shape[0], x.shape[1])
 
 
 class R2Plus1D(nn.Module):

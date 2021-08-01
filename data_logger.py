@@ -3,9 +3,7 @@ import logging
 import os
 from collections import defaultdict
 
-import numpy as np
 import torch
-
 
 logger = logging.getLogger('mrf')
 
@@ -27,11 +25,15 @@ class DataLogger:
 
     @property
     def filename(self) -> str:
-        return f"logs.csv"
+        return "logs.csv"
 
     @property
     def qualified_filename(self) -> str:
         return f"{self.directory}/{self.filename}"
+
+    def _check_dirs_exist(self):
+        if not os.path.exists(self.directory):
+            os.mkdir(self._directory)
 
     def log_error(self, predicted, labels, loss, data_type: str):
         batch_size = predicted.size(0)
@@ -77,8 +79,7 @@ class DataLogger:
         self._iterations[field] += 1
 
     def on_epoch_end(self, epoch: int):
-        if not os.path.exists(self._directory):
-            os.mkdir(self._directory)
+        self._check_dirs_exist()
 
         values = [str(epoch)]
         for field, value in self._log.items():
