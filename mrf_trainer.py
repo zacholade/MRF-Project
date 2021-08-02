@@ -139,24 +139,17 @@ class TrainingAlgorithm(LoggingMixin):
         loss = self.loss(predicted, labels)
         return predicted, loss, attention
 
-    def spatial_validate(self, data, labels):
-        self.model.eval()
-        predicted = self.model.forward(data)
-
-        attention = None
-        if isinstance(predicted, tuple):
-            attention = predicted[1]
-            predicted = predicted[0]
-
-        loss = self.loss(predicted, labels)
-        return predicted, loss, attention
-
     def _should_break_early(self, current_iteration) -> bool:
         return self.debug and self.limit_iterations > 0 and \
                current_iteration % self.limit_iterations == 0 and \
                current_iteration != 0
 
-    def _spatial_valid_loop(self, epoch, validate_loader):
+    def valid_loop(self, epoch, validate_loader):
+        """
+        A validate loop. Because we can't just feed an entire scan into the model
+        (27000+ batch size causes memory issues), we chunk the scan up into chunks and feed them one
+        by one. Then we combine them all before plotting/calculating loss etc.
+        """
         validate_set = iter(validate_loader)
         self.model.eval()
         current_chunk = 0  # The current chunk of one scan currently processing
@@ -171,7 +164,7 @@ class TrainingAlgorithm(LoggingMixin):
                              f"Chunk: {((current_chunk - 1) % self.valid_chunks) + 1} / "
                              f"{self.valid_chunks}")
             data, labels = data.to(self.device), labels.to(self.device)
-            predicted, loss, attention = self.spatial_validate(data, labels)
+            predicted, loss, attention = self.validate(data, labels)
             data, labels = data.cpu(), labels.cpu()
             chunk_loss += loss.detach().cpu().item()
             chunk_predicted = predicted.detach().cpu() if chunk_predicted is None else \
@@ -191,9 +184,9 @@ class TrainingAlgorithm(LoggingMixin):
                     # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
                     # join to it. When process is suspended, memory is forcibly released.
                     plot(plot_maps,
-                         chunk_predicted.cpu().detach().numpy(),
-                         chunk_labels.cpu().numpy(),
-                         chunk_pos.cpu().numpy().astype(int),
+                         chunk_predicted.numpy(),
+                         chunk_labels.numpy(),
+                         chunk_pos.numpy().astype(int),
                          epoch,
                          f"{self.export_dir}/Plots/{file_name}",
                          file_name)
@@ -202,42 +195,6 @@ class TrainingAlgorithm(LoggingMixin):
                 chunk_predicted = None
                 chunk_labels = None
                 chunk_pos = None
-
-    def _non_spatial_valid_loop(self, epoch, validate_loader):
-        validate_set = iter(validate_loader)
-        self.model.eval()
-        for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
-            self.logger.info(f"Epoch: {epoch}, Validation scan: {current_iteration + 1} / "
-                             f"{len(validate_loader)}")
-            # Cut batch size in half
-            batch_size = data.shape[0]
-            data1, labels1 = data[:(batch_size // 2)], labels[:(batch_size // 2)]
-            data2, labels2 = data[(-batch_size // 2):], labels[(-batch_size // 2):]
-            data1, labels1 = data1.to(self.device), labels1.to(self.device)
-            predicted1, loss1, attention1 = self.validate(data1, labels1)
-            data1, labels1 = data1.cpu(), labels1.cpu()
-            data2, labels2 = data2.to(self.device), labels2.to(self.device)
-            predicted2, loss2, attention2 = self.validate(data2, labels2)
-            data2, labels2 = data2.cpu(), labels2.cpu()
-            predicted = torch.cat((predicted1, predicted2), 0)
-            loss = torch.cat((predicted1, predicted2), 0)
-
-            self.data_logger.log_error(predicted.detach().cpu(),
-                                       labels.detach().cpu(),
-                                       loss.detach().cpu().item(), "valid")
-
-            if self.plot_every > 0 and epoch % self.plot_every == 0:
-                if not os.path.exists(f"{self.export_dir}/Plots"):
-                    os.mkdir(f"{self.export_dir}/Plots")
-                # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
-                # join to it. When process is suspended, memory is forcibly released.
-                plot(plot_maps,
-                     predicted.cpu().detach().numpy(),
-                     labels.cpu().numpy(),
-                     pos.cpu().numpy().astype(int),
-                     epoch,
-                     f"{self.export_dir}/Plots/{file_name}",
-                     file_name)
 
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
@@ -261,7 +218,7 @@ class TrainingAlgorithm(LoggingMixin):
                                     compressed=True)
             training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
-            validation_dataset = ScanwiseDataset(valid_data, valid_labels, valid_file_lens,
+            validation_dataset = ScanwiseDataset(self.valid_chunks, valid_data, valid_labels, valid_file_lens,
                                                  valid_file_names, transform=validation_transforms)
 
         total_iterations = self.limit_iterations if (self.debug and self.limit_iterations > 0) else \
@@ -304,11 +261,7 @@ class TrainingAlgorithm(LoggingMixin):
                                                                   shuffle=False,
                                                                   pin_memory=True,
                                                                   num_workers=self.num_testing_dataloader_workers)
-                    if self.using_spatial:
-                        self._spatial_valid_loop(epoch, validate_loader)
-                    else:
-                        self._non_spatial_valid_loop(epoch, validate_loader)
-
+                    self.valid_loop(epoch, validate_loader)
             self.lr_scheduler.step()
             self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr()[0])
             self.save(epoch)

@@ -49,10 +49,26 @@ class ScanwiseDataset(PixelwiseDataset):
     """
     Takes in a collection of compressed scans, one index returns one entire scan in a compressed form.
     """
+    def __init__(self, chunks: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.chunks = chunks
+
+    def __len__(self):
+        return len(self.data) * self.chunks
+
     def __getitem__(self, index):
-        data = self.data[index][:self._file_lens[index]]  # second index just removes the padding applied.
-        label = self.labels[index][:self._file_lens[index]]
-        file_name = self._file_names[index]
+        chunk = index % self.chunks
+        file_index = index // self.chunks
+        if chunk + 1 == self.chunks:  # Last chunk of that file. Might not be same size.
+            _file_len = self._file_lens[file_index]
+            batch_size = _file_len - ((self.chunks - 1) * (_file_len // self.chunks))
+        else:
+            batch_size = self._file_lens[file_index] // self.chunks
+        datapoint_index = np.arange(batch_size) + (chunk * (self._file_lens[file_index] // self.chunks))
+
+        data = self.data[np.repeat(file_index, batch_size), datapoint_index]
+        label = self.labels[np.repeat(file_index, batch_size), datapoint_index]
+        file_name = self._file_names[file_index]
         pos = label[:, 3]
         label = np.delete(label, 3, axis=1).transpose()
 
@@ -60,9 +76,6 @@ class ScanwiseDataset(PixelwiseDataset):
             data, label, pos = self.transform((data, label, pos))
 
         return data, label.transpose(), pos, file_name
-
-    def __len__(self):
-        return len(self.data)
 
     @staticmethod
     def collate_fn(batch):
