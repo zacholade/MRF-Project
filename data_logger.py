@@ -37,7 +37,6 @@ class DataLogger:
 
     def log_error(self, predicted, labels, loss, data_type: str):
         batch_size = predicted.size(0)
-
         mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
         mean_sq_error = torch.mean(((labels - predicted) ** 2))
         root_mean_sq_error = torch.sqrt(mean_sq_error)

@@ -12,7 +12,7 @@ class FactorisedSpatioTemporalConv(nn.Module):
         stride = _triple(stride)
         padding = _triple(padding)
 
-        # Mi = [(td^2 * Ni-1 * Ni) / (d^2 * Ni-1 + tNi-1)]
+        # M_i = \frac{td^2 N_{i-1} N_i}{d^2 N_{i-1} + t N_i}
         intermed_channels = int(math.floor((kernel_size[0] * kernel_size[1] * kernel_size[2] * in_channels * out_channels) /
                                            (kernel_size[1] * kernel_size[2] * in_channels + kernel_size[0] * out_channels)))
 
