@@ -12,10 +12,14 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 logger = logging.getLogger("mrf")
 
 
-def get_all_data_files(compressed: bool):
+def get_all_data_files(compressed: bool, test: bool = False):
     compressed = "Compressed" if compressed else "Uncompressed"
     fingerprint_path = f"Data/{compressed}/Data/"
     label_path = f"Data/{compressed}/Labels/"
+    if test:
+        fingerprint_path = fingerprint_path.replace("/Data", "/Test/Data")
+        label_path = label_path.replace("/Labels", "/Test/Labels")
+
     fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
     label_files = sorted([file for file in os.listdir(label_path) if not file.startswith(".")])
 
@@ -45,73 +49,77 @@ def get_all_data_files(compressed: bool):
     return fingerprint_files, label_files
 
 
-def _load_all_compressed_data_files(train_data_file_names, train_label_file_names,
-                                    test_data_file_names, test_label_file_names,
-                                    max_size: int, seq_len: int = 1000):
-    def gen_data(data_names, label_names):
-        data_files = np.zeros((len(data_names), max_size, seq_len))
-        label_files = np.zeros((len(label_names), max_size, 5))
-        file_lens = []
-        for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
-            logger.info(f"Loading file {i+1} / {len(label_names)}.")
-            data_file = np.load(data_file_name)
-            data_file = data_file[:, :seq_len]  # Limit fingerprint length if specified.
-            label_file = np.load(label_file_name)
-            data_shape = (max_size, seq_len)
-            label_shape = (max_size, label_file.shape[1])
-            padded_data_file = np.zeros(data_shape)
-            padded_label_file = np.zeros(label_shape)
-            padded_data_file[:data_file.shape[0], :seq_len] = data_file
-            padded_label_file[:label_file.shape[0], :label_file.shape[1]] = label_file
-            file_lens.append(data_file.shape[0])
-            data_files[i] = padded_data_file
-            label_files[i] = padded_label_file
-            # We want to apply padding to all the fingerprints so that they can be stacked in a big numpy array.
-            # Why? Because when we pass this data to our PixelwiseDataset/Scanwise etc, we want to use a batch sampler
-            # so that we can sample x amount of indices at once, instead of calling __getitem__ x amount of times (slow).
-            # If we cant stack them then we have to store them in a python list which wont let us index it.
-            # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
+def uncompressed_gen_data(data_names, label_names, max_size: int, seq_len: int):
+    file_lens = []
+    data_files = np.zeros((len(data_names), 230, 230, seq_len))
+    label_files = np.zeros((len(label_names), 230, 230, 5))
 
-        # Removes the path and the file extension from the file names. Left with just the literal file name.
-        file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))
-        return data_files, label_files, np.asarray(file_lens), file_names
+    poses = np.zeros((len(label_names), max_size, 1), dtype=int)
+    for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
+        logger.info(f"Loading file {i + 1} / {len(label_names)}.")
+        data_file = np.load(data_file_name)
+        data_file = data_file[:, :, :seq_len]  # Limit fingerprint length if specified.
+        label_file = np.load(label_file_name)
+        file_lens.append(np.count_nonzero(label_file[:, :, 2] != 0))
 
-    return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)
+        m = np.ma.masked_equal(label_file[:, :, 2], 0)
+        pos_masked = np.ma.masked_array(label_file[:, :, 3], m.mask)
+        pos_compressed = np.ma.compressed(pos_masked)
+        padded_pos = np.zeros((max_size, 1))
+        padded_pos[:pos_compressed.shape[0], 0] = pos_compressed
+        poses[i] = padded_pos
+
+        data_file = np.expand_dims(data_file, axis=0)
+        label_file = np.expand_dims(label_file, axis=0)
+        data_files[i] = data_file
+        label_files[i] = label_file
+
+    # Removes the path and the file extension from the file names. Left with just the literal file name.
+    file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))
+    return data_files, label_files, np.asarray(file_lens), file_names, poses
 
 
-def _load_all_uncompressed_data_files(train_data_file_names, train_label_file_names,
-                                      test_data_file_names, test_label_file_names,
-                                      max_size, seq_len: int = 1000):
-    def gen_data(data_names, label_names):
-        file_lens = []
-        data_files = np.zeros((len(data_names), 230, 230, seq_len))
-        label_files = np.zeros((len(label_names), 230, 230, 5))
+def compressed_gen_data(data_names, label_names, max_size: int, seq_len: int):
+    data_files = np.zeros((len(data_names), max_size, seq_len))
+    label_files = np.zeros((len(label_names), max_size, 5))
+    file_lens = []
+    for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
+        logger.info(f"Loading file {i + 1} / {len(label_names)}.")
+        data_file = np.load(data_file_name)
+        data_file = data_file[:, :seq_len]  # Limit fingerprint length if specified.
+        label_file = np.load(label_file_name)
+        data_shape = (max_size, seq_len)
+        label_shape = (max_size, label_file.shape[1])
+        padded_data_file = np.zeros(data_shape)
+        padded_label_file = np.zeros(label_shape)
+        padded_data_file[:data_file.shape[0], :seq_len] = data_file
+        padded_label_file[:label_file.shape[0], :label_file.shape[1]] = label_file
+        file_lens.append(data_file.shape[0])
+        data_files[i] = padded_data_file
+        label_files[i] = padded_label_file
+        # We want to apply padding to all the fingerprints so that they can be stacked in a big numpy array.
+        # Why? Because when we pass this data to our PixelwiseDataset/Scanwise etc, we want to use a batch sampler
+        # so that we can sample x amount of indices at once, instead of calling __getitem__ x amount of times (slow).
+        # If we cant stack them then we have to store them in a python list which wont let us index it.
+        # As such, we then also need to return the file lens (without padding len) so we know to ignore the padded 0s.
 
-        poses = np.zeros((len(label_names), max_size, 1), dtype=int)
-        for i, (data_file_name, label_file_name) in enumerate(zip(data_names, label_names)):
-            logger.info(f"Loading file {i+1} / {len(label_names)}.")
-            data_file = np.load(data_file_name)
-            data_file = data_file[:, :, :seq_len]  # Limit fingerprint length if specified.
-            label_file = np.load(label_file_name)
-            file_lens.append(np.count_nonzero(label_file[:, :, 2] != 0))
+    # Removes the path and the file extension from the file names. Left with just the literal file name.
+    file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))
+    return data_files, label_files, np.asarray(file_lens), file_names
 
-            m = np.ma.masked_equal(label_file[:, :, 2], 0)
-            pos_masked = np.ma.masked_array(label_file[:, :, 3], m.mask)
-            pos_compressed = np.ma.compressed(pos_masked)
-            padded_pos = np.zeros((max_size, 1))
-            padded_pos[:pos_compressed.shape[0], 0] = pos_compressed
-            poses[i] = padded_pos
 
-            data_file = np.expand_dims(data_file, axis=0)
-            label_file = np.expand_dims(label_file, axis=0)
-            data_files[i] = data_file
-            label_files[i] = label_file
+def load_eval_files(seq_len: int = 1000, compressed: bool = True):
+    data_file_names, label_file_names = get_all_data_files(compressed, test=True)
 
-        # Removes the path and the file extension from the file names. Left with just the literal file name.
-        file_names = list(map(lambda x: x.split('/')[-1], map(lambda x: x.split('.')[0], data_names)))
-        return data_files, label_files, np.asarray(file_lens), file_names, poses
+    # Find the max shape so we can apply padding in the following for loop instead of a separate for loop.
+    files = [np.load(label_file_name, mmap_mode='r').shape[0] for label_file_name in
+             list(map(lambda x: x.replace("Uncompressed", "Compressed"), label_file_names))]
+    max_size = max(files)
 
-    return gen_data(train_data_file_names, train_label_file_names), gen_data(test_data_file_names, test_label_file_names)
+    if compressed:
+        return compressed_gen_data(data_file_names, label_file_names, max_size, seq_len)
+    else:
+        return uncompressed_gen_data(data_file_names, label_file_names, max_size, seq_len)
 
 
 def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: bool = True):
@@ -143,12 +151,13 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: b
     test_data_file_names = [data_file_names[i] for i in test_indices]
     test_label_file_names = [label_file_names[i] for i in test_indices]
 
-    return _load_all_compressed_data_files(train_data_file_names, train_label_file_names,
-                                           test_data_file_names, test_label_file_names,
-                                           max_size, seq_len) if compressed else \
-        _load_all_uncompressed_data_files(train_data_file_names, train_label_file_names,
-                                          test_data_file_names, test_label_file_names,
-                                          max_size, seq_len)
+    if compressed:
+        return compressed_gen_data(train_data_file_names, train_label_file_names, max_size, seq_len),\
+               compressed_gen_data(test_data_file_names, test_label_file_names, max_size, seq_len)
+    else:
+        return uncompressed_gen_data(train_data_file_names, train_label_file_names, max_size, seq_len),\
+               uncompressed_gen_data(test_data_file_names, test_label_file_names, max_size, seq_len)
+
 
 def get_exports_dir(model, args):
     if not os.path.exists("Exports"):

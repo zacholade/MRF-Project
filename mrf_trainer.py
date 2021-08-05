@@ -17,7 +17,7 @@ from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchDataset
 from logging_manager import setup_logging, LoggingMixin
-from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song
+from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song, RCAUNet
 from models.balsiger import Balsiger
 from models.r2plus1d import R2Plus1D
 from models.spatio_temporal import SpatioTemporal
@@ -198,7 +198,7 @@ class TrainingAlgorithm(LoggingMixin):
 
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
-        training_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
+        training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
         if self.using_spatial:
             (train_data, train_labels, train_file_lens, train_file_names, train_pos), \
@@ -269,7 +269,7 @@ class TrainingAlgorithm(LoggingMixin):
             self.logger.info(f"Epoch {epoch} complete")
 
 
-def get_network(network: str):
+def get_network(network: str, config):
     using_spatial = False  # If true input is fed as patches.
     using_attention = False
 
@@ -296,6 +296,9 @@ def get_network(network: str):
     elif network == 'balsiger':
         using_spatial = True
         model = Balsiger(seq_len=config.seq_len, patch_size=config.patch_size)
+    elif network == 'rca_unet':
+        using_spatial = True
+        model = RCAUNet()
     elif network == 'st':
         using_spatial = True
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
@@ -320,7 +323,7 @@ def main(args, config, logger):
 
     file_limit = config.limit_number_files if args.file_limit < 0 else args.file_limit
     # If true, return type from model.forward() is ((batch_size, labels), attention)
-    model, using_spatial, using_attention = get_network(args.network)
+    model, using_spatial, using_attention = get_network(args.network, config)
 
     export_dir = get_exports_dir(model, args)
     file_handler = logging.FileHandler(f"{export_dir}/logs.log")
