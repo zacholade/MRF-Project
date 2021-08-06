@@ -305,9 +305,9 @@ def get_network(network: str, config):
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
     elif network == 'r2plus1d':
         using_spatial = True
-        using_attention = config.use_attention
+        using_attention = config.cbam_attention or config.rcab_attention
         model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
-                         attention=config.use_attention)
+                         cbam=config.cbam_attention, rcab=config.rcab_attention)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")

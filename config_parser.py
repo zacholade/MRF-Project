@@ -75,6 +75,14 @@ class Configuration:
         return self._config.getboolean(f"{self.network_name}Hyperparameters", "use_attention")
 
     @property
+    def cbam_attention(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "cbam_attention")
+
+    @property
+    def rcab_attention(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "rcab_attention")
+
+    @property
     def num_temporal_features(self) -> int:
         return self._config.getint(f"{self.network_name}Hyperparameters", "num_temporal_features")
 
