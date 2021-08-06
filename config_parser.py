@@ -75,6 +75,10 @@ class Configuration:
         return self._config.getboolean(f"{self.network_name}Hyperparameters", "use_attention")
 
     @property
+    def num_temporal_features(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "num_temporal_features")
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1

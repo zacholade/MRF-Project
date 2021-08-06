@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 
 from config_parser import Configuration
 from data_logger import DataLogger
-from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchDataset
+from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchwiseDataset
 from logging_manager import setup_logging, LoggingMixin
 from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song, RCAUNet
 from models.balsiger import Balsiger
@@ -208,8 +208,8 @@ class TrainingAlgorithm(LoggingMixin):
                                     compressed=False)
             training_dataset = PatchwiseDataset(self.model.patch_size, train_pos, train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
-            validation_dataset = ScanPatchDataset(self.valid_chunks, self.model.patch_size, valid_pos, valid_data, valid_labels, valid_file_lens,
-                                                  valid_file_names, transform=validation_transforms)
+            validation_dataset = ScanPatchwiseDataset(self.valid_chunks, self.model.patch_size, valid_pos, valid_data, valid_labels, valid_file_lens,
+                                                      valid_file_names, transform=validation_transforms)
         else:
             (train_data, train_labels, train_file_lens, train_file_names), \
             (valid_data, valid_labels, valid_file_lens, valid_file_names) = \
@@ -298,7 +298,8 @@ def get_network(network: str, config):
         model = Balsiger(seq_len=config.seq_len, patch_size=config.patch_size)
     elif network == 'rca_unet':
         using_spatial = True
-        model = RCAUNet()
+        model = RCAUNet(seq_len=config.seq_len, patch_size=config.patch_size,
+                        temporal_features=config.num_temporal_features)
     elif network == 'st':
         using_spatial = True
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
@@ -364,7 +365,7 @@ def main(args, config, logger):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st', 'r2plus1d']
+    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st', 'rca_unet', 'r2plus1d']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)  # Which network to use.
     parser.add_argument('-debug', '-d', action='store_true', default=False)  # Debug mode. Ignore git warning, get debug logging and custom file limit for debugging.
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)  # Number of data loader workers.

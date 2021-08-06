@@ -14,25 +14,50 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, BatchSampler, RandomSampler
 
 #  R2Plus1D_epoch-42_optim-Adam_initial-lr-0.001_loss-MSELoss_batch-size-100.pt
-from transforms import ApplyPD, OnlyT1T2
+from transforms import ApplyPD, OnlyT1T2, NoiseTransform
 from util import load_eval_files, plot_maps, plot
+import h5py
+
+
+class DM(nn.Module):
+    """
+    Implements dictionary matching.
+    """
+    def __init__(self):
+        super().__init__()
+        dm_file = h5py.File("Data/dict.mat", 'r')
+        self.lut = torch.Tensor(np.array(dm_file.get('lut'))).cuda()
+        self.dic = torch.FloatTensor(np.array(dm_file.get('dict'))).cuda()
+
+    def forward(self, x):
+        out = torch.zeros(x.shape[0], 3, device=x.device)
+        for i, fingerprint in enumerate(x):
+            fingerprint = fingerprint.unsqueeze(1)
+            dot = torch.mm(self.dic, fingerprint)
+            out[i] = self.lut[:, torch.argmax(dot)]
+        return out[:, :2]
 
 
 def main(args, config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model, using_spatial, using_attention = get_network(args.network, config)
-    loss_func = nn.MSELoss()
-    checkpoint = torch.load(args.path)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.eval()
+    if args.network.lower() == "dm":
+        model, using_spatial, using_attention = DM(), False, False
+    else:
+        model, using_spatial, using_attention = get_network(args.network, config)
+        checkpoint = torch.load(args.path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+
     model.to(device)
+    model.eval()
+
+    loss_func = nn.MSELoss()
 
     data_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
     if using_spatial:
         _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=config.seq_len,
                                                                         compressed=not using_spatial)
-        validation_dataset = ScanPatchDataset(args.chunks, model.patch_size, _pos, _data,
-                                              _labels, _file_lens, _file_names, transform=data_transforms)
+        validation_dataset = ScanPatchwiseDataset(args.chunks, model.patch_size, _pos, _data,
+                                                  _labels, _file_lens, _file_names, transform=data_transforms)
     else:
         _data, _labels, _file_lens, _file_names = load_eval_files(seq_len=config.seq_len,
                                                                   compressed=not using_spatial)
@@ -105,7 +130,7 @@ def main(args, config):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st', 'r2plus1d']
+    network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger', 'st', 'r2plus1d', 'dm']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-path', required=True)  # Path to the model + filename

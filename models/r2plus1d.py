@@ -79,9 +79,9 @@ class R2Plus1D(nn.Module):
         super().__init__()
         self.patch_size = patch_size
 
-        self.attention = attention
-        if attention:
-            self.channel_attention = ChannelAttention(seq_len, reduction_ratio=1)
+        # self.attention = attention
+        # if attention:
+        #     self.channel_attention = ChannelAttention(seq_len, reduction_ratio=1)
 
         conv_block = FactorisedSpatioTemporalConv if factorise else nn.Conv3d
         # first conv, with stride 1x2x2. Kernel size 3x5x5 modified from 3x7x7.
@@ -100,8 +100,8 @@ class R2Plus1D(nn.Module):
         self.linear = nn.Linear(128, 2)
 
     def forward(self, x):
-        if self.attention:
-            x, attention_weights = self.channel_attention(x)
+        # if self.attention:
+        #     x, attention_weights = self.channel_attention(x)
         x = self.conv1(x.unsqueeze(1))
         x = self.conv2(x)
         x = self.conv3(x)
@@ -109,4 +109,4 @@ class R2Plus1D(nn.Module):
         x = self.conv5(x)
         x = self.pool(x).view(-1, 128)
         x = self.linear(x)
-        return x, attention_weights if self.attention else x
+        return x#, attention_weights if self.attention else x
