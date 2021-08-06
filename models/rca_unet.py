@@ -3,31 +3,30 @@ from typing import Union
 from torch import nn
 import torch
 from torch.nn import functional as F
+from .modules.rcab import RCAB
 
 
 class Convs(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, mid_channels: int = None):
+    def __init__(self, in_channels: int, out_channels: int, rcab: bool = False):
         super().__init__()
-        mid_channels = mid_channels if mid_channels is not None else out_channels
-        self.layers = nn.Sequential(
+        modules = [
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(inplace=True)
-        )
+        ]
+        rcab and modules.append(RCAB(num_channels=out_channels, reduction=4))
+        self.layers = nn.Sequential(*modules)
 
     def forward(self, x):
         return self.layers(x)
 
 
 class Downsample(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, rcab: bool = False):
         super().__init__()
         self.layers = nn.Sequential(
             nn.MaxPool2d(2),
-            Convs(in_channels, out_channels)
+            Convs(in_channels, out_channels, rcab)
         )
 
     def forward(self, x):
@@ -35,10 +34,10 @@ class Downsample(nn.Module):
 
 
 class Upsample(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, rcab: bool = False):
         super().__init__()
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        self.conv = Convs(in_channels, out_channels)
+        self.conv = Convs(in_channels, out_channels, rcab)
 
     def forward(self, x, y):
         x = self.upsample(x)
@@ -47,7 +46,7 @@ class Upsample(nn.Module):
         diffX = y.size()[3] - x.size()[3]
 
         x = F.pad(x, [diffX // 2, diffX - diffX // 2,
-                       diffY // 2, diffY - diffY // 2])
+                      diffY // 2, diffY - diffY // 2])
 
         x = torch.cat((x, y), dim=1)
         return self.conv(x)
@@ -73,14 +72,14 @@ class SubRCAUNet(nn.Module):
         self.patch_size = patch_size
         dim = 64
         factor = 2
-        self.in_conv = Convs(temporal_features, dim)
-        self.down1 = Downsample(64, 128)
-        self.down2 = Downsample(128, 256)
-        self.down3 = Downsample(256, 512 // factor)
-        self.up1 = Upsample(512, 256 // factor)
-        self.up2 = Upsample(256, 128 // factor)
-        self.up3 = Upsample(128, 64 // factor)
-        self.out_conv = Convs(32, 1)
+        self.in_conv = Convs(temporal_features, dim, rcab=True)
+        self.down1 = Downsample(64, 128, rcab=True)
+        self.down2 = Downsample(128, 256, rcab=True)
+        self.down3 = Downsample(256, 512 // factor, rcab=True)
+        self.up1 = Upsample(512, 256 // factor, rcab=True)
+        self.up2 = Upsample(256, 128 // factor, rcab=True)
+        self.up3 = Upsample(128, 64 // factor, rcab=True)
+        self.out_conv = Convs(32, 1, rcab=False)
 
     def forward(self, x):
         x1 = self.in_conv(x)
