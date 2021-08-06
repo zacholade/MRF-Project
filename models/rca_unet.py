@@ -91,7 +91,7 @@ class SubRCAUNet(nn.Module):
         x = self.up2(x, x2)
         x = self.up3(x, x1)
         x = self.out_conv(x)
-        return x[:, :, 32, 32]
+        return x[:, :, self.patch_size // 2, self.patch_size // 2]
 
 
 class RCAUNet(nn.Module):
