@@ -46,7 +46,7 @@ class Upsample(nn.Module):
         diffY = y.size()[2] - x.size()[2]
         diffX = y.size()[3] - x.size()[3]
 
-        x1 = F.pad(x, [diffX // 2, diffX - diffX // 2,
+        x = F.pad(x, [diffX // 2, diffX - diffX // 2,
                        diffY // 2, diffY - diffY // 2])
 
         x = torch.cat((x, y), dim=1)

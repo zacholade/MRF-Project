@@ -116,13 +116,10 @@ class PatchwiseDataset(PixelwiseDataset):
         y = pixel_index % 230 + self.padding_width
         patch_diameter = int(np.sqrt(self.patch_size))
         patch_radius = patch_diameter // 2
-        patch_radius_upper = patch_radius
-        if patch_radius % 2 == 0:
-            patch_radius_upper -= 1 # Even
         spatial_xs = np.repeat(x, self.patch_size) + np.tile(np.tile(np.arange(
-            0 - patch_radius, 1 + patch_radius_upper, 1), patch_diameter), batch_size)
+            0 - patch_radius, 1 + patch_radius, 1), patch_diameter), batch_size)
         spatial_ys = np.repeat(y, self.patch_size) + np.tile(np.repeat(np.arange(
-            0 - patch_radius, 1 + patch_radius_upper, 1), patch_diameter), batch_size)
+            0 - patch_radius, 1 + patch_radius, 1), patch_diameter), batch_size)
         data = self.data[np.repeat(file_index, self.patch_size),
                          spatial_xs,
                          spatial_ys, :]
