@@ -141,10 +141,16 @@ class R2Plus1D(nn.Module):
         if self.use_cbam:
             x, attention_weights = self.cbam(x)
         x = self.conv1(x.unsqueeze(1))
+        print(x.shape)
         x = self.conv2(x)
+        print(x.shape)
         x = self.conv3(x)
+        print(x.shape)
         x = self.conv4(x)
+        print(x.shape)
         x = self.conv5(x)
+        print(x.shape)
         x = self.pool(x).view(-1, 256)
+        print(x.shape)
         x = self.linear(x)
         return x, attention_weights if self.use_cbam else x

@@ -5,3 +5,4 @@ from .rnn_attention import RNNAttention
 from .song import Song
 from .rca_unet import RCAUNet
 from .r2plus1d import R2Plus1D
+from .patch_size_test import PatchSizeTest
