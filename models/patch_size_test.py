@@ -1,7 +1,6 @@
 from typing import Union
 
 from torch import nn
-import torch
 
 
 class PatchSizeTest(nn.Module):
@@ -29,14 +28,13 @@ class PatchSizeTest(nn.Module):
         self.conv2_y = self.conv_block(128, 128, kernel_size=(15, 1, 1), stride=1,
                                        batch_norm=True, activation='relu', padding=(7, 0, 0))
 
-        self.out_conv = self.conv_block(128, 2, kernel_size=(75, patch_size - 2, patch_size - 2), stride=1,
+        self.out_conv = self.conv_block(128, 2, kernel_size=(seq_len // 4, patch_size - 2, patch_size - 2), stride=1,
                                         batch_norm=False, activation='none', padding='valid')
 
     def forward(self, x):
         batch_size = x.size(0)
-        x = x.unsqueeze(1)
+        x = x.unsqueeze(1)  # Add Channel dimension
         x = self.conv1ds(x)
-
         x = self.conv1_x(x)
         y = self.conv1_y(x)
         x = x + y
