@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from .modules.factorised_spatiotemporal_conv import FactorisedSpatioTemporalConv
+from .modules.non_local_block import NonLocalBlock1D, NonLocalBlock2D, NonLocalBlock3D
 
 
 class ChannelAttention(nn.Module):
@@ -122,19 +123,19 @@ class R2Plus1D(nn.Module):
 
         conv_block = FactorisedSpatioTemporalConv if factorise else nn.Conv3d
         # first conv, with stride 1x2x2. Kernel size 3x5x5 modified from 3x7x7.
-        self.conv1 = conv_block(1, 16, kernel_size=(3, 5, 5), stride=(1, 2, 2), padding=(1, 3, 3))
+        self.conv1 = conv_block(1, 32, kernel_size=(3, 5, 5), stride=(1, 2, 2), padding=(1, 3, 3))
         # output of conv2 is same size as of conv1, no downsampling/compression needed. kernel_size 3x3x3
-        self.conv2 = SpatioTemporalResLayer(16, 16, 3, block=conv_block, rcab=rcab)
+        self.conv2 = SpatioTemporalResLayer(32, 32, 3, block=conv_block, rcab=rcab)
         # each of the final three layers doubles num_channels, while performing downsampling
         # inside the first block
-        self.conv3 = SpatioTemporalResLayer(16, 32, 3, compress=True, block=conv_block, rcab=rcab)
-        self.conv4 = SpatioTemporalResLayer(32, 64, 3, compress=True, block=conv_block, rcab=rcab)
+        self.conv3 = SpatioTemporalResLayer(32, 64, 3, compress=True, block=conv_block, rcab=rcab)
+        self.conv4 = SpatioTemporalResLayer(64, 128, 3, compress=True, block=conv_block, rcab=rcab)
         # With patch size = 7, at this last layer, W and H are now both 1. Compressed completely in spatial dimension.
-        self.conv5 = SpatioTemporalResLayer(64, 128, 3, compress=True, block=conv_block, rcab=rcab)
+        self.conv5 = SpatioTemporalResLayer(128, 256, 3, compress=True, block=conv_block, rcab=rcab)
 
         # global average pooling of the output
         self.pool = nn.AdaptiveAvgPool3d(1)
-        self.linear = nn.Linear(128, 2)
+        self.linear = nn.Linear(256, 2)
 
     def forward(self, x):
         if self.use_cbam:
@@ -144,6 +145,6 @@ class R2Plus1D(nn.Module):
         x = self.conv3(x)
         x = self.conv4(x)
         x = self.conv5(x)
-        x = self.pool(x).view(-1, 128)
+        x = self.pool(x).view(-1, 256)
         x = self.linear(x)
-        return x#, attention_weights if self.attention else x
+        return x, attention_weights if self.use_cbam else x
