@@ -13,8 +13,8 @@ class FactorisedSpatioTemporalConv(nn.Module):
         padding = _triple(padding)
 
         # M_i = \frac{td^2 N_{i-1} N_i}{d^2 N_{i-1} + t N_i}
-        intermed_channels = int(math.floor((kernel_size[0] * kernel_size[1] * kernel_size[2] * in_channels * out_channels) /
-                                           (kernel_size[1] * kernel_size[2] * in_channels + kernel_size[0] * out_channels)))
+        intermed_channels = max(int(math.floor((kernel_size[0] * kernel_size[1] * kernel_size[2] * in_channels * out_channels) /
+                                           (kernel_size[1] * kernel_size[2] * in_channels + kernel_size[0] * out_channels))), 1)
 
         spatial_kernel_size = 1, kernel_size[1], kernel_size[2]
         spatial_stride = 1, stride[1], stride[2]
@@ -32,7 +32,6 @@ class FactorisedSpatioTemporalConv(nn.Module):
         temporal_kernel_size = kernel_size[0], 1, 1
         temporal_stride = stride[0], 1, 1
         temporal_padding = padding[0], 0, 0
-
         self.temporal_conv = nn.Conv3d(in_channels=intermed_channels, out_channels=out_channels,
                                        kernel_size=temporal_kernel_size, stride=temporal_stride,
                                        padding=temporal_padding)

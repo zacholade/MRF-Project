@@ -17,10 +17,9 @@ from config_parser import Configuration
 from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchwiseDataset
 from logging_manager import setup_logging, LoggingMixin
-from models import CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song, RCAUNet, PatchSizeTest
-from models.balsiger import Balsiger
-from models.r2plus1d import R2Plus1D
-from models.spatio_temporal import SpatioTemporal
+from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
+                    RCAUNet, PatchSizeTest, R2Plus1D, R2Plus1DFinal,
+                    Balsiger, SpatioTemporal)
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
@@ -311,6 +310,9 @@ def get_network(network: str, config):
         using_attention = config.cbam_attention or config.rcab_attention
         model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
                          cbam=config.cbam_attention, rcab=config.rcab_attention)
+    elif network == 'r2plus1d_final':
+        using_spatial = True
+        model = R2Plus1DFinal(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
@@ -369,7 +371,7 @@ def main(args, config, logger):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger',
-                       'st', 'rca_unet', 'r2plus1d', 'patch_size']
+                       'st', 'rca_unet', 'r2plus1d', 'patch_size', 'r2plus1d_final']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)  # Which network to use.
     parser.add_argument('-debug', '-d', action='store_true', default=False)  # Debug mode. Ignore git warning, get debug logging and custom file limit for debugging.
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)  # Number of data loader workers.

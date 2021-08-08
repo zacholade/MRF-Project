@@ -5,4 +5,7 @@ from .rnn_attention import RNNAttention
 from .song import Song
 from .rca_unet import RCAUNet
 from .r2plus1d import R2Plus1D
+from .r2plus1d_final import R2Plus1DFinal
 from .patch_size_test import PatchSizeTest
+from .balsiger import Balsiger
+from .spatio_temporal import SpatioTemporal
