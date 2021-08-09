@@ -36,7 +36,7 @@ class DataLogger:
             os.mkdir(self._directory)
 
     def log_error(self, predicted, labels, loss, data_type: str):
-        batch_size = predicted.size(0)
+        batch_size = predicted.shape[0]
         mean_abs_perc_error = torch.mean(torch.abs(((labels - predicted) / labels))) * 100
         mean_sq_error = torch.mean(((labels - predicted) ** 2))
         root_mean_sq_error = torch.sqrt(mean_sq_error)
@@ -55,7 +55,8 @@ class DataLogger:
         t2_root_mean_sq_error = torch.sqrt(t2_mean_sq_error)
         t2_mean_abs_error = torch.abs(t2_true - t2_pred).sum() / batch_size
 
-        self.log(f"{data_type}_loss", (loss / len(labels)))
+        if loss is not None:
+            self.log(f"{data_type}_loss", (loss / len(labels)))
 
         self.log(f"{data_type}_mape", mean_abs_perc_error)
         self.log(f"{data_type}_t1_mape", t1_mean_abs_perc_error)

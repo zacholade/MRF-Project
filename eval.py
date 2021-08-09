@@ -38,6 +38,28 @@ class DM(nn.Module):
         return out[:, :2]
 
 
+def log_in_vivo_sections(predicted, labels, data_logger):
+    white_matter_mask = torch.where((685-33 <= labels[:, 0]) & (labels[:, 0] <= 685+33), True, False)
+    predicted_white_matter_masked = predicted[white_matter_mask]
+    true_white_matter_masked = labels[white_matter_mask]
+
+    grey_matter_mask = torch.where((1180-104 <= labels[:, 0]) & (labels[:, 0] <= 1180+104), True, False)
+    predicted_grey_matter_masked = predicted[grey_matter_mask]
+    true_grey_matter_masked = labels[grey_matter_mask]
+
+    cbsf_mask = torch.where((4880-379 <= labels[:, 0]) & (labels[:, 0] <= 4880+251), True, False)
+    predicted_cbsf_masked = predicted[cbsf_mask]
+    true_cbsf_masked = labels[cbsf_mask]
+
+    # If statements in case there is no tissue in the range for that scan.
+    if true_cbsf_masked.size(0) != 0:
+        data_logger.log_error(predicted_white_matter_masked, true_white_matter_masked, None, "white")
+    if true_grey_matter_masked.size(0) != 0:
+        data_logger.log_error(predicted_grey_matter_masked, true_grey_matter_masked, None, "grey")
+    if true_cbsf_masked.size(0) != 0:
+        data_logger.log_error(predicted_cbsf_masked, true_cbsf_masked, None, "cbsf")
+
+
 def main(args, config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if args.network.lower() == "dm":
@@ -107,6 +129,9 @@ def main(args, config):
             data_logger.log_error(chunk_predicted,
                                   chunk_labels,
                                   chunk_loss, "test")
+
+            log_in_vivo_sections(chunk_predicted, chunk_labels, data_logger)
+
 
             if not os.path.exists(f"{export_dir}/Plots"):
                 os.mkdir(f"{export_dir}/Plots")
