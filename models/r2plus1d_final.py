@@ -78,7 +78,7 @@ class R2Plus1DFinal(nn.Module):
         self.nloc_2 = NonLocalBlock3D(in_channels=64, compression=1)
         self.conv3 = SpatioTemporalResLayer(64, 128, 3, temporal_compress=True, block=conv_block)
         self.nloc_3 = NonLocalBlock3D(in_channels=128, compression=1)
-        self.conv4 = SpatioTemporalResLayer(128, 256, (3, 1, 1), spatial_compress=True, temporal_compress=True, block=conv_block)
+        self.conv4 = SpatioTemporalResLayer(128, 256, 3, spatial_compress=True, temporal_compress=True, block=conv_block)
         self.nloc_4 = NonLocalBlock3D(in_channels=256, compression=1)
 
         # global average pooling of the output
@@ -96,8 +96,10 @@ class R2Plus1DFinal(nn.Module):
         x = self.nloc_2(x)
         x = self.conv3(x)
         x = self.nloc_3(x)
+        print(x.shape)
         x = self.conv4(x)
         x = self.nloc_4(x)
+        print(x.shape)
         x = self.pool(x).view(-1, 256)
         x = self.linear(x)
         return x
