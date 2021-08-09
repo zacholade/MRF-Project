@@ -70,7 +70,6 @@ class R2Plus1DFinal(nn.Module):
             conv_block(1, 16, kernel_size=(21, 3, 3), stride=(1, 1, 1), padding=(10, 1, 1)),
             conv_block(16, 16, kernel_size=(11, 3, 3), stride=(1, 1, 1), padding=(5, 1, 1)),
         )
-        self.nloc_0 = NonLocalBlock3D(in_channels=16, compression=1)
         # output of conv2 is same size as of conv1, no downsampling needed. kernel_size 3x3x3
         self.conv1 = SpatioTemporalResLayer(16, 32, 3, temporal_compress=True, block=conv_block)
         self.nloc_1 = NonLocalBlock3D(in_channels=32, compression=1)
