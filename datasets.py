@@ -130,6 +130,7 @@ class PatchwiseDataset(PixelwiseDataset):
         label = np.delete(label, 3, axis=1).transpose()
 
         if self.transform:
+            # Apply transformations such as apply PD, normalise and add noise.
             data, label, pos = self.transform((data, label, pos))
 
         label = label.transpose()

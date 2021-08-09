@@ -14,7 +14,7 @@ class FactorisedSpatioTemporalConv(nn.Module):
 
         # M_i = \frac{td^2 N_{i-1} N_i}{d^2 N_{i-1} + t N_i}
         intermed_channels = max(int(math.floor((kernel_size[0] * kernel_size[1] * kernel_size[2] * in_channels * out_channels) /
-                                           (kernel_size[1] * kernel_size[2] * in_channels + kernel_size[0] * out_channels))), 1)
+                                (kernel_size[1] * kernel_size[2] * in_channels + kernel_size[0] * out_channels))), 1)
 
         spatial_kernel_size = 1, kernel_size[1], kernel_size[2]
         spatial_stride = 1, stride[1], stride[2]
@@ -25,7 +25,7 @@ class FactorisedSpatioTemporalConv(nn.Module):
                                       padding=spatial_padding)
         self.bn = nn.BatchNorm3d(intermed_channels)
 
-        # 2D + 1 huge advantage. Additional ReLU between 2d and 1d convolution doubles the number
+        # 2D + 1 advantage. Additional ReLU between 2d and 1d convolution doubles the number
         # of non-linearities. Thus, increasing complexity of the functions it can represent.
         self.relu = nn.ReLU()
 

@@ -243,7 +243,7 @@ class TrainingAlgorithm(LoggingMixin):
                                            loss.detach().cpu().item(),
                                            data_type="train")
 
-                if current_iteration % max((total_iterations // 50), 1) == 0 or current_iteration == 2:
+                if current_iteration % max((total_iterations // 150), 1) == 0 or current_iteration == 2:
                     self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}, "

@@ -84,7 +84,6 @@ class Song(nn.Module):
         x = self.resx_3(x)
         y = self.resy_3(x)
         x = self.nloc_3(x + y)
-
         x = x.mean(2)
         x = self.out(x)
         return x
