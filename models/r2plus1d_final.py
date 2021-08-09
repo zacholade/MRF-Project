@@ -96,10 +96,8 @@ class R2Plus1DFinal(nn.Module):
         x = self.nloc_2(x)
         x = self.conv3(x)
         x = self.nloc_3(x)
-        print(x.shape)
         x = self.conv4(x)
         x = self.nloc_4(x)
-        print(x.shape)
         x = self.pool(x).view(-1, 256)
         x = self.linear(x)
         return x
