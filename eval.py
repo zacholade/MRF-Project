@@ -23,11 +23,17 @@ class DM(nn.Module):
     """
     Implements dictionary matching.
     """
-    def __init__(self):
+    def __init__(self, seq_len):
         super().__init__()
         dm_file = h5py.File("Data/dict.mat", 'r')
         self.lut = torch.Tensor(np.array(dm_file.get('lut'))).cuda()
         self.dic = torch.FloatTensor(np.array(dm_file.get('dict'))).cuda()
+        if seq_len != 1000:
+            dn = torch.Tensor(np.array(dm_file.get('dict_norm'))).cuda()
+            self.dic *= dn
+            self.dic = self.dic[:, :seq_len]
+            new_dict_norm = torch.sqrt(torch.sum(torch.abs(torch.square(self.dic)), dim=1)).unsqueeze(1)
+            self.dic /= new_dict_norm
 
     def forward(self, x):
         out = torch.zeros(x.shape[0], 3, device=x.device)
@@ -63,7 +69,7 @@ def log_in_vivo_sections(predicted, labels, data_logger):
 def main(args, config):
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if args.network.lower() == "dm":
-        model, using_spatial, using_attention = DM(), False, False
+        model, using_spatial, using_attention = DM(config.seq_len), False, False
     else:
         model, using_spatial, using_attention = get_network(args.network, config)
         checkpoint = torch.load(args.path)
