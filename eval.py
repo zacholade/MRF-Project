@@ -138,7 +138,6 @@ def main(args, config):
 
             log_in_vivo_sections(chunk_predicted, chunk_labels, data_logger)
 
-
             if not os.path.exists(f"{export_dir}/Plots"):
                 os.mkdir(f"{export_dir}/Plots")
             # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and

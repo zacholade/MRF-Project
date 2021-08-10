@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import sys
+import re
 
 import git
 import numpy as np
@@ -90,26 +91,6 @@ class TrainingAlgorithm(LoggingMixin):
             'loss': self.loss,
             'batch_size': self.batch_size
         }, f"{self.export_dir}/Models/{filename}")
-
-    @classmethod
-    def load(cls, path):
-        checkpoint = torch.load(path)
-
-        model = CohenMLP()
-        model.load_state_dict(checkpoint['model_state_dict'])
-
-        optimiser = optim.Adam(model.parameters())
-        optimiser.load_state_dict(checkpoint['optimiser_state_dict'])
-
-        lr_scheduler = optim.lr_scheduler.StepLR  # TODO
-
-        epoch = checkpoint['epoch']
-        loss = checkpoint['loss']
-        batch_size = checkpoint['batch_size']
-
-        number_epochs_to_do = epoch + 1
-        return cls(model, optimiser, loss, number_epochs_to_do, batch_size,
-                   starting_epoch=epoch)
 
     def train(self, data, labels):
         self.model.train()
@@ -365,6 +346,21 @@ def main(args, config, logger):
                                 limit_number_files=file_limit,
                                 limit_iterations=config.limit_iterations,
                                 device=device)
+    if args.resume_dir is not None:
+        path = args.resume_dir + '/Models/' + args.resume_model
+        checkpoint = torch.load(path)
+        trainer.model.load_state_dict(checkpoint['model_state_dict'])
+        trainer.optimiser = optim.Adam(model.parameters())
+        optimiser.load_state_dict(checkpoint['optimiser_state_dict'])
+        trainer.lr_scheduler = trainer.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+
+        trainer.epoch = checkpoint['epoch']
+        os.remove(trainer.export_dir)
+        trainer.export_dir = path
+
+        trainer.starting_epoch = checkpoint['epoch']
+        trainer.total_epochs = 5000  # Large number for number of epochs. dont stop
+
     trainer.loop(args.skip_valid)
 
 
@@ -382,6 +378,8 @@ if __name__ == "__main__":
     parser.add_argument('-cpu', action='store_true', default=False)  # Force to use cpu.
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-file_limit', default=-1, type=int)  # Limit number of scans to open at one time.
+    parser.add_argument('-resume_dir', default=None, type=str, required=False)
+    parser.add_argument('-resume_model', type=int, required=False, default=None)
 
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
