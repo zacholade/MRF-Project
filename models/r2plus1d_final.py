@@ -7,7 +7,7 @@ from .modules.non_local_block import NonLocalBlock1D, NonLocalBlock2D, NonLocalB
 
 class SpatioTemporalResLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size,
-                 spatial_compress=False, temporal_compress=False,
+                 spatial_stride=1, temporal_compress=False,
                  block=FactorisedSpatioTemporalConv):
         super().__init__()
 
@@ -17,17 +17,16 @@ class SpatioTemporalResLayer(nn.Module):
         # through a seperate 1x1x1 conv with stride = 2 to also halve it.
 
         # no pooling layers are used inside ResNet
-        self.spatial_compress = spatial_compress
+        self.spatial_stride = spatial_stride
         self.temporal_compress = temporal_compress
 
         # to allow for SAME padding
         padding = kernel_size[0] // 2, kernel_size[1] // 2, kernel_size[2] // 2
 
-        if self.spatial_compress or self.temporal_compress:
+        if self.spatial_stride is not 1 or self.temporal_compress:
             # downsample with stride =2 the input x
             compress_stride_d = 2 if self.temporal_compress else 1
-            compress_stride_hw = 3 if self.spatial_compress else 1
-            compress_stride = (compress_stride_d, compress_stride_hw, compress_stride_hw)
+            compress_stride = (compress_stride_d, spatial_stride, spatial_stride)
             self.compress_conv = block(in_channels, out_channels, 1, stride=compress_stride)
             self.compress_bn = nn.BatchNorm3d(out_channels)
 
@@ -49,7 +48,7 @@ class SpatioTemporalResLayer(nn.Module):
         y = self.relu1(self.bn1(self.conv1(x)))
         y = self.bn2(self.conv2(y))
 
-        if self.spatial_compress or self.temporal_compress:
+        if self.spatial_stride is not 1 or self.temporal_compress:
             x = self.compress_bn(self.compress_conv(x))
 
         return self.outrelu(x + y)
@@ -67,18 +66,18 @@ class R2Plus1DFinal(nn.Module):
         conv_block = FactorisedSpatioTemporalConv if factorise else nn.Conv3d
         # first conv, with stride 1x2x2 and kernel size 3x7x7
         self.conv0 = nn.Sequential(
-            conv_block(1, 16, kernel_size=(21, 3, 3), stride=(1, 1, 1), padding=(10, 1, 1)),
-            conv_block(16, 16, kernel_size=(11, 3, 3), stride=(1, 1, 1), padding=(5, 1, 1)),
+            conv_block(1, 16, kernel_size=(3, 5, 5), stride=(1, 1, 1), padding=(1, 2, 2)),
+            conv_block(16, 16, kernel_size=(3, 5, 5), stride=(1, 1, 1), padding=(1, 2, 2)),
         )
         # output of conv2 is same size as of conv1, no downsampling needed. kernel_size 3x3x3
         self.conv1 = SpatioTemporalResLayer(16, 32, 3, temporal_compress=True, block=conv_block)
         self.nloc_1 = NonLocalBlock3D(in_channels=32, compression=1)
         # each of the final three layers doubles num_channels, while performing downsampling inside the first block
-        self.conv2 = SpatioTemporalResLayer(32, 64, 3, temporal_compress=True, block=conv_block)
+        self.conv2 = SpatioTemporalResLayer(32, 64, 3, temporal_compress=True, spatial_stride=2, block=conv_block)
         self.nloc_2 = NonLocalBlock3D(in_channels=64, compression=1)
-        self.conv3 = SpatioTemporalResLayer(64, 128, 3, temporal_compress=True, block=conv_block)
+        self.conv3 = SpatioTemporalResLayer(64, 128, 3, temporal_compress=True, spatial_stride=3, block=conv_block)
         self.nloc_3 = NonLocalBlock3D(in_channels=128, compression=1)
-        self.conv4 = SpatioTemporalResLayer(128, 256, 3, spatial_compress=True, temporal_compress=True, block=conv_block)
+        self.conv4 = SpatioTemporalResLayer(128, 256, (3, 1, 1), temporal_compress=True, block=conv_block)
         self.nloc_4 = NonLocalBlock3D(in_channels=256, compression=1)
 
         # global average pooling of the output
