@@ -23,7 +23,7 @@ class SpatioTemporalResLayer(nn.Module):
         # to allow for SAME padding
         padding = kernel_size[0] // 2, kernel_size[1] // 2, kernel_size[2] // 2
 
-        if self.spatial_stride is not 1 or self.temporal_compress:
+        if self.spatial_stride != 1 or self.temporal_compress:
             # downsample with stride =2 the input x
             compress_stride_d = 2 if self.temporal_compress else 1
             compress_stride = (compress_stride_d, spatial_stride, spatial_stride)
@@ -48,7 +48,7 @@ class SpatioTemporalResLayer(nn.Module):
         y = self.relu1(self.bn1(self.conv1(x)))
         y = self.bn2(self.conv2(y))
 
-        if self.spatial_stride is not 1 or self.temporal_compress:
+        if self.spatial_stride != 1 or self.temporal_compress:
             x = self.compress_bn(self.compress_conv(x))
 
         return self.outrelu(x + y)
