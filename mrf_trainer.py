@@ -196,7 +196,7 @@ class TrainingAlgorithm(LoggingMixin):
                 chunk_pos = None
 
     def loop(self, skip_valid):
-        validation_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
+        validation_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
         training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
         if self.using_spatial:

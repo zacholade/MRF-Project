@@ -80,7 +80,7 @@ def main(args, config):
 
     loss_func = nn.MSELoss()
 
-    data_transforms = transforms.Compose([ApplyPD(), OnlyT1T2()])
+    data_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
     if using_spatial:
         _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=config.seq_len,
                                                                         compressed=not using_spatial)
