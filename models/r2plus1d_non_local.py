@@ -54,7 +54,7 @@ class SpatioTemporalResLayer(nn.Module):
         return self.outrelu(x + y)
 
 
-class R2Plus1DFinal(nn.Module):
+class R2Plus1DNonLocal(nn.Module):
     def __init__(self, patch_size: int, seq_len, factorise: bool = True):
         """
         factorise: Whether to factorise spatial and temporal dimensions.

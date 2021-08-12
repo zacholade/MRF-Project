@@ -177,7 +177,8 @@ def main(args, config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention',
-                       'patch_size', 'balsiger', 'st', 'r2plus1d', 'dm']
+                       'patch_size', 'balsiger', 'st', 'dm', 'patch_size',
+                       'r2plus1d', 'r2plus1d_cbam', 'r2plus1d_non_local']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-path', required=True)  # Path to the model + filename

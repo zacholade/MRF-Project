@@ -18,8 +18,9 @@ from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchwiseDataset
 from logging_manager import setup_logging, LoggingMixin
 from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
-                    RCAUNet, PatchSizeTest, R2Plus1D, R2Plus1DFinal,
+                    RCAUNet, PatchSizeTest, R2Plus1DCbam, R2Plus1DNonLocal,
                     Balsiger, SpatioTemporal)
+from models.r2plus1d import R2Plus1D
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
@@ -78,6 +79,9 @@ class TrainingAlgorithm(LoggingMixin):
         if not os.path.exists(f"{self.export_dir}/Models"):
             os.mkdir(f"{self.export_dir}/Models")
 
+        if not os.path.exists(f"{self.export_dir}/CompleteModels"):
+            os.mkdir(f"{self.export_dir}/CompleteModels")
+
         filename = f"{self.model.__class__.__name__}_epoch-{epoch}_optim-{self.optimiser.__class__.__name__}_" \
                    f"initial-lr-{self.initial_lr}_loss-{self.loss.__class__.__name__}_batch-size-{self.batch_size}.pt"
 
@@ -90,6 +94,8 @@ class TrainingAlgorithm(LoggingMixin):
             'loss': self.loss,
             'batch_size': self.batch_size
         }, f"{self.export_dir}/Models/{filename}")
+
+        torch.save(self.model, f"{self.export_dir}/CompleteModels/complete_{filename}")
 
     def train(self, data, labels):
         self.model.train()
@@ -287,12 +293,15 @@ def get_network(network: str, config):
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
     elif network == 'r2plus1d':
         using_spatial = True
+        model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
+    elif network == 'r2plus1d_cbam':
+        using_spatial = True
         using_attention = config.cbam_attention or config.rcab_attention
-        model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
-                         cbam=config.cbam_attention, rcab=config.rcab_attention)
+        model = R2Plus1DCbam(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
+                             cbam=config.cbam_attention, rcab=config.rcab_attention)
     elif network == 'r2plus1d_final':
         using_spatial = True
-        model = R2Plus1DFinal(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
+        model = R2Plus1DNonLocal(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
@@ -369,7 +378,7 @@ def main(args, config, logger):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger',
-                       'st', 'rca_unet', 'r2plus1d', 'patch_size', 'r2plus1d_final']
+                       'st', 'rca_unet', 'patch_size', 'r2plus1d', 'r2plus1d_cbam', 'r2plus1d_non_local']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)  # Which network to use.
     parser.add_argument('-debug', '-d', action='store_true', default=False)  # Debug mode. Ignore git warning, get debug logging and custom file limit for debugging.
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)  # Number of data loader workers.
