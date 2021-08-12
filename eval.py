@@ -11,10 +11,10 @@ from config_parser import Configuration
 from mrf_trainer import get_network
 from datasets import *
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, BatchSampler, RandomSampler
+from torch.utils.data import DataLoader
 
-#  R2Plus1D_epoch-42_optim-Adam_initial-lr-0.001_loss-MSELoss_batch-size-100.pt
-from transforms import ApplyPD, OnlyT1T2, NoiseTransform
+
+from transforms import ApplyPD, OnlyT1T2, NoiseTransform, Normalise, Unnormalise
 from util import load_eval_files, plot_maps, plot
 import h5py
 
@@ -80,15 +80,27 @@ def main(args, config):
 
     loss_func = nn.MSELoss()
 
-    data_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
+    if args.snr is not None:
+        complex_path = f"snr-{args.snr}_cs-{args.cs}"
+        seq_len = 200
+        data_transforms = transforms.Compose(
+            [Unnormalise(), ApplyPD(), Normalise(), OnlyT1T2()])
+    else:
+        complex_path = None
+        seq_len = config.seq_len
+        data_transforms = transforms.Compose(
+            [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
+
     if using_spatial:
-        _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=config.seq_len,
-                                                                        compressed=not using_spatial)
+        _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=seq_len,
+                                                                        compressed=not using_spatial,
+                                                                        complex_path=complex_path)
         validation_dataset = ScanPatchwiseDataset(args.chunks, model.patch_size, _pos, _data,
                                                   _labels, _file_lens, _file_names, transform=data_transforms)
     else:
-        _data, _labels, _file_lens, _file_names = load_eval_files(seq_len=config.seq_len,
-                                                                  compressed=not using_spatial)
+        _data, _labels, _file_lens, _file_names = load_eval_files(seq_len=seq_len,
+                                                                  compressed=not using_spatial,
+                                                                  complex_path=complex_path)
         validation_dataset = ScanwiseDataset(args.chunks, _data, _labels, _file_lens,
                                              _file_names, transform=data_transforms)
 
@@ -98,7 +110,11 @@ def main(args, config):
                                               shuffle=False,
                                               pin_memory=True,
                                               num_workers=args.workers)
+
     export_dir = f"Exports/Test/{args.path.split('.')[0]}"
+    if args.snr is not None:
+        export_dir += f"_snr-{args.snr}_cs-{args.cs}"
+
     if not os.path.exists(export_dir):
         os.mkdir(export_dir)
 
@@ -166,6 +182,8 @@ if __name__ == "__main__":
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-path', required=True)  # Path to the model + filename
     parser.add_argument('-workers', '-num_workers', '-w', dest='workers', default=0, type=int)
+    parser.add_argument('-snr', default=None, type=int)
+    parser.add_argument('-cs', default=None, type=int)
     args = parser.parse_args()
 
     config = Configuration(args.network, "config.ini", debug=False)

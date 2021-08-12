@@ -3,12 +3,12 @@ import numpy as np
 import os
 
 
-for filename in os.listdir("../Data/Uncompressed/Data"):
+for filename in os.listdir("Data/Uncompressed/Test/Data"):
     if filename.startswith("."):
         continue
 
-    label = np.load("Data/Uncompressed/Labels/" + filename)
-    data = np.load("Data/Uncompressed/Data/" + filename)
+    label = np.load("Data/Uncompressed/Test/Labels/" + filename)
+    data = np.load("Data/Uncompressed/Test/Data/" + filename)
     dn = label[:, :, 4]
     data *= dn[:, :, np.newaxis]
 
@@ -21,5 +21,3 @@ for filename in os.listdir("../Data/Uncompressed/Data"):
     scipy.io.savemat(f"CoverBLIP/CoverBLIP toolbox/data/labels/{filename}", label_mat)
     scipy.io.savemat(f"CoverBLIP/CoverBLIP toolbox/data/data/{filename}", data_mat)
 
-    import sys
-    sys.exit()

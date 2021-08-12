@@ -11,6 +11,7 @@ import numpy as np
 from scripts.brain_dict_true import brain_dict_true
 import logging
 
+
 logger = logging.getLogger('mrf')
 logger.setLevel(logging.INFO)
 default_logging_format = ''.join([
@@ -25,6 +26,40 @@ default_logging_format = ''.join([
 ])
 
 logging.basicConfig(format=default_logging_format)
+
+
+
+def convert_to_compact_array(data, label):
+    """
+    Takes in a 230x230 shape array and converts it to a flattened 1d array with indices
+    """
+    indices = np.arange(230 * 230).reshape(230, 230)
+    t1, t2, pd, dn = label
+    m = np.ma.masked_equal(pd, 0)
+    t1_masked, t2_masked, pd_masked, indices_masked, dn_masked = \
+        np.ma.masked_array(t1, m.mask), np.ma.masked_array(t2, m.mask), \
+        np.ma.masked_array(pd, m.mask), np.ma.masked_array(indices, m.mask), \
+        np.ma.masked_array(dn, m.mask)
+    t1_compressed, t2_compressed, pd_compressed, indices_compressed, dn_compressed = \
+        np.ma.compressed(t1_masked), np.ma.compressed(t2_masked), \
+        np.ma.compressed(pd_masked), np.ma.compressed(indices_masked), \
+        np.ma.compressed(dn_masked)
+
+    fp_compressed = []
+    for index in indices_compressed:
+        x = int(index // 230)
+        y = int(index % 230)
+        fp_compressed.append(data[x][y])
+    fp_compressed = np.asarray(fp_compressed)
+    # recon = np.zeros((230, 230))
+    # x = indices_compressed // 230
+    # y = indices_compressed % 230
+    # recon[x, y] = t1_compressed[np.arange(len(indices_compressed))]
+
+    label = np.asarray([t1_compressed, t2_compressed, pd_compressed, indices_compressed, dn_compressed])
+    label = np.transpose(label)
+    data = fp_compressed
+    return data, label
 
 
 def get_all_filenames() -> List[str]:
@@ -69,39 +104,6 @@ def gen_fp_map(filename):
     dict_norm_map = np.asarray(dict_norm_map).reshape(230, 230)
     fingerprint_map = np.array(fingerprint_map).reshape((230, 230, len(rf_pulses)))
     return fingerprint_map, np.asarray([t1, t2, pd, dict_norm_map])
-
-
-def convert_to_compact_array(data, label):
-    """
-    Takes in a 230x230 shape array and converts it to a flattened 1d array with indices
-    """
-    indices = np.arange(230 * 230).reshape(230, 230)
-    t1, t2, pd, dn = label
-    m = np.ma.masked_equal(pd, 0)
-    t1_masked, t2_masked, pd_masked, indices_masked, dn_masked = \
-        np.ma.masked_array(t1, m.mask), np.ma.masked_array(t2, m.mask), \
-        np.ma.masked_array(pd, m.mask), np.ma.masked_array(indices, m.mask), \
-        np.ma.masked_array(dn, m.mask)
-    t1_compressed, t2_compressed, pd_compressed, indices_compressed, dn_compressed = \
-        np.ma.compressed(t1_masked), np.ma.compressed(t2_masked), \
-        np.ma.compressed(pd_masked), np.ma.compressed(indices_masked), \
-        np.ma.compressed(dn_masked)
-
-    fp_compressed = []
-    for index in indices_compressed:
-        x = int(index // 230)
-        y = int(index % 230)
-        fp_compressed.append(data[x][y])
-    fp_compressed = np.asarray(fp_compressed)
-    # recon = np.zeros((230, 230))
-    # x = indices_compressed // 230
-    # y = indices_compressed % 230
-    # recon[x, y] = t1_compressed[np.arange(len(indices_compressed))]
-
-    label = np.asarray([t1_compressed, t2_compressed, pd_compressed, indices_compressed, dn_compressed])
-    label = np.transpose(label)
-    data = fp_compressed
-    return data, label
 
 
 def make_data(filename):

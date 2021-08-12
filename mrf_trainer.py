@@ -4,7 +4,6 @@ import argparse
 import logging
 import os
 import sys
-import re
 
 import git
 import numpy as np
@@ -21,7 +20,7 @@ from logging_manager import setup_logging, LoggingMixin
 from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
                     RCAUNet, PatchSizeTest, R2Plus1D, R2Plus1DFinal,
                     Balsiger, SpatioTemporal)
-from transforms import NoiseTransform, OnlyT1T2, ApplyPD
+from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
 
 np.set_printoptions(threshold=sys.maxsize)
@@ -177,8 +176,8 @@ class TrainingAlgorithm(LoggingMixin):
                 chunk_pos = None
 
     def loop(self, skip_valid):
-        validation_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
-        training_transforms = transforms.Compose([ApplyPD(), NoiseTransform(0, 0.01), OnlyT1T2()])
+        validation_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
+        training_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
         if self.using_spatial:
             (train_data, train_labels, train_file_lens, train_file_names, train_pos), \
@@ -346,7 +345,10 @@ def main(args, config, logger):
                                 limit_number_files=file_limit,
                                 limit_iterations=config.limit_iterations,
                                 device=device)
+
     if args.resume_dir is not None:
+        # Monkey patch the old model to resume from. Writing a class method turned out to be too
+        # tedious as lots of edge cases!
         path = args.resume_dir + '/Models/' + args.resume_model
         checkpoint = torch.load(path)
         trainer.model.load_state_dict(checkpoint['model_state_dict'])

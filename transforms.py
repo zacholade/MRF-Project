@@ -54,6 +54,26 @@ class NoiseTransform(BaseTransform):
         return data, labels, pos
 
 
+class Unnormalise(BaseTransform):
+    def __call__(self, sample):
+        data, label, pos = sample
+        t1, t2, pd, dn = label
+        # old_sum_squares = np.sum(data**2, axis=1)  # To asset if sum of squares == 1
+        data *= dn[:, np.newaxis]  # Un-normalise data by the dict norm value per pixel
+        return data, label, pos
+
+
+class Normalise(BaseTransform):
+    def __call__(self, sample):
+        data, label, pos = sample
+        new_dict_norm = np.sqrt(np.sum(np.abs(np.square(data)), axis=1))  # Calculate new normalisation value per fp.
+        new_dict_norm[new_dict_norm == 0] = 1  # If a value is 0, replace it with 1 or else divide by 0 in next line.
+        data /= new_dict_norm[:, np.newaxis]  # Apply normalisation value to data
+        # new_sum_squares = np.sum(data**2, axis=1)  # To assert sum of squares == 1
+        # print(new_sum_squares)
+        return data, label, pos
+
+
 class ApplyPD(BaseTransform):
     """
     Undoes the normalisation before scaling the fingerprints by proton density.
@@ -62,12 +82,5 @@ class ApplyPD(BaseTransform):
     def __call__(self, sample):
         data, label, pos = sample
         t1, t2, pd, dn = label
-        # old_sum_squares = np.sum(data**2, axis=1)  # To asset if sum of squares == 1
-        data *= dn[:, np.newaxis]  # Un-normalise data by the dict norm value per pixel
         data *= pd[:, np.newaxis]  # Apply PD to the un-normalised data
-        new_dict_norm = np.sqrt(np.sum(np.abs(np.square(data)), axis=1))  # Calculate new normalisation value per fp.
-        new_dict_norm[new_dict_norm == 0] = 1  # If a value is 0, replace it with 1 or else divide by 0 in next line.
-        data /= new_dict_norm[:, np.newaxis]  # Apply normalisation value to data
-        # new_sum_squares = np.sum(data**2, axis=1)  # To assert sum of squares == 1
-        # print(new_sum_squares)
         return data, label, pos

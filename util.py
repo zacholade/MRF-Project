@@ -12,13 +12,18 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 logger = logging.getLogger("mrf")
 
 
-def get_all_data_files(compressed: bool, test: bool = False):
+def get_all_data_files(compressed: bool, test: bool = False, complex_path: str = None):
     compressed = "Compressed" if compressed else "Uncompressed"
     fingerprint_path = f"Data/{compressed}/Data/"
     label_path = f"Data/{compressed}/Labels/"
     if test:
-        fingerprint_path = fingerprint_path.replace("/Data", "/Test/Data")
-        label_path = label_path.replace("/Labels", "/Test/Labels")
+        if complex_path:  # reconstruct scans with COMPLEX noise and undersampled!
+            # fingerprint_path = fingerprint_path.
+            fingerprint_path = f"Data/{compressed}/Test/ComplexNoise/{complex_path}/"
+            label_path = f"Data/{compressed}/Test/Labels/"
+        else:
+            fingerprint_path = fingerprint_path.replace("/Data", "/Test/Data")
+            label_path = label_path.replace("/Labels", "/Test/Labels")
 
     fingerprint_files = sorted([file for file in os.listdir(fingerprint_path) if not file.startswith(".")])
     label_files = sorted([file for file in os.listdir(label_path) if not file.startswith(".")])
@@ -108,8 +113,8 @@ def compressed_gen_data(data_names, label_names, max_size: int, seq_len: int):
     return data_files, label_files, np.asarray(file_lens), file_names
 
 
-def load_eval_files(seq_len: int = 1000, compressed: bool = True):
-    data_file_names, label_file_names = get_all_data_files(compressed, test=True)
+def load_eval_files(seq_len: int = 1000, compressed: bool = True, complex_path: str = None):
+    data_file_names, label_file_names = get_all_data_files(compressed, test=True, complex_path=complex_path)
 
     # Find the max shape so we can apply padding in the following for loop instead of a separate for loop.
     files = [np.load(label_file_name, mmap_mode='r').shape[0] for label_file_name in
@@ -301,5 +306,4 @@ def plot(func, *args, **kwargs):
                 kwargs=kwargs)
     p.start()
     p.join()
-
 

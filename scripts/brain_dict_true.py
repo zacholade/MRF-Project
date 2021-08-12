@@ -44,5 +44,4 @@ def brain_dict_true(eng,
     dict_norm = np.asarray(dict_norm)
     look_up_table = np.asarray(look_up_table)
 
-    # Apply proton density scaling
     return d, dict_norm
