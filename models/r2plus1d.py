@@ -83,15 +83,11 @@ class R2Plus1D(nn.Module):
 
     def forward(self, x):
         x = self.conv1(x.unsqueeze(1))
-        print(x.shape)
         x = self.conv2(x)
-        print(x.shape)
         x = self.conv3(x)
-        print(x.shape)
         x = self.conv4(x)
-        print(x.shape)
         x = self.conv5(x)
-        print(x.shape)
         x = self.pool(x).view(-1, 128)
         x = self.linear(x)
         return x
+

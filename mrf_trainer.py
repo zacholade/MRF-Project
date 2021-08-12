@@ -299,7 +299,7 @@ def get_network(network: str, config):
         using_attention = config.cbam_attention or config.rcab_attention
         model = R2Plus1DCbam(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
                              cbam=config.cbam_attention, rcab=config.rcab_attention)
-    elif network == 'r2plus1d_final':
+    elif network == 'r2plus1d_non_local':
         using_spatial = True
         model = R2Plus1DNonLocal(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
     else:
