@@ -19,7 +19,7 @@ from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPa
 from logging_manager import setup_logging, LoggingMixin
 from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
                     RCAUNet, PatchSizeTest, R2Plus1DCbam, R2Plus1DNonLocal,
-                    Balsiger, SpatioTemporal)
+                    Balsiger, SpatioTemporal, R2Plus1DTemporalNonLocal)
 from models.r2plus1d import R2Plus1D
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
@@ -302,6 +302,9 @@ def get_network(network: str, config):
     elif network == 'r2plus1d_non_local':
         using_spatial = True
         model = R2Plus1DNonLocal(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
+    elif network == 'r2plus1d_temporal_non_local':
+        using_spatial = True
+        model = R2Plus1DTemporalNonLocal(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
     else:
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
@@ -378,7 +381,8 @@ def main(args, config, logger):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger',
-                       'st', 'rca_unet', 'patch_size', 'r2plus1d', 'r2plus1d_cbam', 'r2plus1d_non_local']
+                       'st', 'rca_unet', 'patch_size',
+                       'r2plus1d', 'r2plus1d_cbam', 'r2plus1d_non_local', 'r2plus1d_temporal_non_local']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)  # Which network to use.
     parser.add_argument('-debug', '-d', action='store_true', default=False)  # Debug mode. Ignore git warning, get debug logging and custom file limit for debugging.
     parser.add_argument('-workers', '-num_workers', '-w', dest='num_workers', default=0, type=int)  # Number of data loader workers.

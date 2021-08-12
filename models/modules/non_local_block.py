@@ -107,3 +107,15 @@ class NonLocalBlock3D(_NonLocalBlockND):
                          intermediate_dim=intermediate_dim,
                          compression=compression,
                          bn_layer=bn_layer, add_residual=add_residual)
+
+
+class NonLocalAttention1DFor3D(NonLocalBlock1D):
+    """
+    Allows for 3D input to have strictly temporal non-local attention applied to it.
+    It achieves this by reshaping the spatial dimensions into the batch size,
+    passing it through the 1D non-local block before transforming it back to its original shape.
+    """
+    def forward(self, x):
+        batch_size, c, t, h, w, = x.shape
+        x = x.view(batch_size * h * w, c, t)
+        return super().forward(x).view(batch_size, c, t, h, w)
