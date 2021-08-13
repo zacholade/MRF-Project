@@ -68,7 +68,7 @@ class R2Plus1DNonLocal(nn.Module):
 
         conv_block = FactorisedSpatioTemporalConv if factorise else nn.Conv3d
         # first conv, with stride 1x2x2 and kernel size 3x7x7
-        self.conv1 = conv_block(1, 16, kernel_size=3, stride=(1, 2, 2), padding=(1, 2, 2))
+        self.conv1 = conv_block(1, 16, kernel_size=(3, 5, 5), stride=(1, 2, 2), padding=(1, 3, 3))
         # output of conv2 is same size as of conv1, no downsampling needed. kernel_size 3x3x3
         self.conv2 = SpatioTemporalResLayer(16, 16, 3, block=conv_block)
         # each of the final three layers doubles num_channels, while performing downsampling
