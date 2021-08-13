@@ -90,4 +90,3 @@ class R2Plus1D(nn.Module):
         x = self.pool(x).view(-1, 128)
         x = self.linear(x)
         return x
-
