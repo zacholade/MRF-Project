@@ -87,6 +87,10 @@ class Configuration:
         return self._config.getint(f"{self.network_name}Hyperparameters", "num_temporal_features")
 
     @property
+    def non_local_level(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "non_local_level")
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1

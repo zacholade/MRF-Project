@@ -293,7 +293,8 @@ def get_network(network: str, config):
         model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
     elif network == 'r2plus1d':
         using_spatial = True
-        model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise)
+        model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
+                         non_local_level=config.non_local_level)
     elif network == 'r2plus1d_cbam':
         using_spatial = True
         using_attention = config.cbam_attention or config.rcab_attention
@@ -334,6 +335,7 @@ def main(args, config, logger):
     logger.info(f"Using {config.seq_len} dimensional fingerprints.")
     logger.info(f"Model: {model}")
     logger.info(f"Args: {args}")
+    logger.info(f"Number model parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
 
     optimiser = optim.Adam(model.parameters(), lr=config.lr)
     lr_scheduler = optim.lr_scheduler.StepLR(optimiser, step_size=config.lr_step_size, gamma=config.lr_gamma)
