@@ -19,7 +19,7 @@ from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPa
 from logging_manager import setup_logging, LoggingMixin
 from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
                     RCAUNet, PatchSizeTest, R2Plus1DCbam, R2Plus1DNonLocal,
-                    Balsiger, SpatioTemporal, R2Plus1DTemporalNonLocal)
+                    Balsiger, R2Plus1DTemporalNonLocal, Soyak)
 from models.r2plus1d import R2Plus1D
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise
 from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
@@ -48,7 +48,7 @@ class TrainingAlgorithm(LoggingMixin):
                  debug: bool = False,
                  limit_number_files: int = -1,
                  limit_iterations: int = -1,
-                 device: str = None
+                 device: str = None,
     ):
         self.device = device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
@@ -74,6 +74,12 @@ class TrainingAlgorithm(LoggingMixin):
 
         self.export_dir = export_dir
         self.data_logger = DataLogger(f"{self.export_dir}/Logs")
+
+        self._lowest_error = np.inf
+        self._patience = 15
+        self._best_epoch = 0
+        self._epochs_without_improvement = 0
+        self._should_stop = False
 
     def save(self, epoch):
         if not os.path.exists(f"{self.export_dir}/Models"):
@@ -137,6 +143,8 @@ class TrainingAlgorithm(LoggingMixin):
         """
         validate_set = iter(validate_loader)
         self.model.eval()
+        epoch_mape = 0
+        total_scans = 0
         current_chunk = 0  # The current chunk of one scan currently processing
         chunk_loss = 0
         chunk_predicted = None
@@ -175,11 +183,16 @@ class TrainingAlgorithm(LoggingMixin):
                          epoch,
                          f"{self.export_dir}/Plots/{file_name}",
                          file_name)
-
+                epoch_mape += torch.mean(torch.abs(((chunk_labels - chunk_predicted) / chunk_labels))) * 100
+                total_scans += 1
                 chunk_loss = 0
                 chunk_predicted = None
                 chunk_labels = None
                 chunk_pos = None
+
+        epoch_valid_mape = epoch_mape / total_scans
+        self.logger.info(f"Validation MAPE: {epoch_valid_mape}")
+        return epoch_valid_mape
 
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
@@ -246,12 +259,27 @@ class TrainingAlgorithm(LoggingMixin):
                                                                   shuffle=False,
                                                                   pin_memory=True,
                                                                   num_workers=self.num_testing_dataloader_workers)
-                    self.valid_loop(epoch, validate_loader)
+                    validation_mape = self.valid_loop(epoch, validate_loader)
             self.lr_scheduler.step()
             self.data_logger.log('learning_rate', self.lr_scheduler.get_last_lr()[0])
             self.save(epoch)
             self.data_logger.on_epoch_end(epoch)
             self.logger.info(f"Epoch {epoch} complete")
+
+            # Early stop logic
+            self._epochs_without_improvement += 1
+            if validation_mape < self._lowest_error:
+                self._epochs_without_improvement = 0
+                self._best_epoch = epoch
+                self._lowest_error = validation_mape
+            if self._epochs_without_improvement > self._patience:
+                self.logger.warning(f"{self._patience} epochs have passed without improving. Stopping training.")
+                self._should_stop = True  # Terminate training here if this reaches.
+
+            self.logger.info(f"Epochs wt/out improv: {self._epochs_without_improvement}, "
+                             f"Best epoch: {self._best_epoch}, "
+                             f"Lowest Valid MAPE: {self._lowest_error}, "
+                             f"Should Stop: {self._should_stop}")
 
 
 def get_network(network: str, config):
@@ -278,6 +306,9 @@ def get_network(network: str, config):
                              num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
     elif network == 'song':
         model = Song(seq_len=config.seq_len)
+    elif network == 'soyak':
+        using_spatial = True
+        model = Soyak(patch_size=config.patch_size, seq_len=config.seq_len)
     elif network == 'patch_size':
         using_spatial = True
         model = PatchSizeTest(seq_len=config.seq_len, patch_size=config.patch_size)
@@ -288,9 +319,6 @@ def get_network(network: str, config):
         using_spatial = True
         model = RCAUNet(seq_len=config.seq_len, patch_size=config.patch_size,
                         temporal_features=config.num_temporal_features)
-    elif network == 'st':
-        using_spatial = True
-        model = SpatioTemporal(seq_len=config.seq_len, patch_size=config.patch_size)
     elif network == 'r2plus1d':
         using_spatial = True
         model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
@@ -383,7 +411,7 @@ def main(args, config, logger):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention', 'balsiger',
-                       'st', 'rca_unet', 'patch_size',
+                       'rca_unet', 'patch_size', 'soyak',
                        'r2plus1d', 'r2plus1d_cbam', 'r2plus1d_non_local', 'r2plus1d_temporal_non_local']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)  # Which network to use.
     parser.add_argument('-debug', '-d', action='store_true', default=False)  # Debug mode. Ignore git warning, get debug logging and custom file limit for debugging.
