@@ -75,6 +75,7 @@ class TrainingAlgorithm(LoggingMixin):
         self.export_dir = export_dir
         self.data_logger = DataLogger(f"{self.export_dir}/Logs")
 
+        # Early stop logic
         self._lowest_error = np.inf
         self._patience = 15
         self._best_epoch = 0
@@ -390,7 +391,7 @@ def main(args, config, logger):
 
     if args.resume_dir is not None:
         # Monkey patch the old model to resume from. Writing a class method turned out to be too
-        # tedious as lots of edge cases!
+        # tedious as lots of edge cases! Note this does break some things so use with caution.
         path = args.resume_dir + '/Models/' + args.resume_model
         checkpoint = torch.load(path)
         trainer.model.load_state_dict(checkpoint['model_state_dict'])
@@ -424,7 +425,7 @@ if __name__ == "__main__":
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-file_limit', default=-1, type=int)  # Limit number of scans to open at one time.
     parser.add_argument('-resume_dir', default=None, type=str, required=False)
-    parser.add_argument('-resume_model', type=int, required=False, default=None)
+    parser.add_argument('-resume_model', type=int, required=False, default=None)  # Experimental resuming model training.
 
     args = parser.parse_args()
     args.plot_every = 0 if args.no_plot else args.plot_every
