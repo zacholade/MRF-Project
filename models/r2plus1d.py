@@ -116,7 +116,6 @@ class R2Plus1D(nn.Module):
     def forward(self, x):
         x = x.unsqueeze(1)
         x = self.conv1(x)
-        print(x.shape)
         x = self.conv2(x)
         if self.use_non_local:
             x = self.conv3(x)
