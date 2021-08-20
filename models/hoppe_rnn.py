@@ -26,17 +26,17 @@ class Hoppe(nn.Module):
         fc2_out_feature_size = int(fc1_out_feature_size // 1.5)
         fc3_out_feature_size = int(fc2_out_feature_size // 2)
         self.layers = nn.Sequential(
-            nn.ReLU(),
             nn.BatchNorm1d(num_features=lstm_out_feature_size),
+            nn.ReLU(),
             nn.Linear(in_features=lstm_out_feature_size, out_features=fc1_out_feature_size),
-            nn.ReLU(),
             nn.BatchNorm1d(num_features=fc1_out_feature_size),
+            nn.ReLU(),
             nn.Linear(in_features=fc1_out_feature_size, out_features=fc2_out_feature_size),
-            nn.ReLU(),
             nn.BatchNorm1d(num_features=fc2_out_feature_size),
-            nn.Linear(in_features=fc2_out_feature_size, out_features=fc3_out_feature_size),
             nn.ReLU(),
+            nn.Linear(in_features=fc2_out_feature_size, out_features=fc3_out_feature_size),
             nn.BatchNorm1d(num_features=fc3_out_feature_size),
+            nn.ReLU(),
             nn.Linear(in_features=fc3_out_feature_size, out_features=2),
         )
         if spatial_pooling is None:
