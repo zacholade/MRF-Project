@@ -15,7 +15,7 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         self.labels = labels
         self.data = data
         self._file_lens = file_lens
-        self._file_names = file_names
+        self._file_names = np.array(file_names, dtype=object)
 
         self._cum_file_lens = np.cumsum(self._file_lens)
         self._num_total_pixels = np.sum(self._file_lens)
@@ -33,7 +33,7 @@ class PixelwiseDataset(torch.utils.data.Dataset):
         label = np.delete(label, 3, axis=1).transpose()
 
         if self.transform:
-            data, label, pos = self.transform((data, label, pos))
+            data, label, pos, _ = self.transform((data, label, pos, None))
 
         return data, label.transpose(), pos
 
@@ -73,7 +73,7 @@ class ScanwiseDataset(PixelwiseDataset):
         label = np.delete(label, 3, axis=1).transpose()
 
         if self.transform:
-            data, label, pos = self.transform((data, label, pos))
+            data, label, pos, _ = self.transform((data, label, pos, file_name))
 
         return data, label.transpose(), pos, file_name
 
@@ -131,7 +131,7 @@ class PatchwiseDataset(PixelwiseDataset):
 
         if self.transform:
             # Apply transformations such as apply PD, normalise and add noise.
-            data, label, pos = self.transform((data, label, pos))
+            data, label, pos, _ = self.transform((data, label, pos, None))
 
         label = label.transpose()
         label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel
@@ -182,7 +182,7 @@ class ScanPatchwiseDataset(PatchwiseDataset):
         label = np.delete(label, 3, axis=1).transpose()
 
         if self.transform:
-            data, label, pos = self.transform((data, label, pos))
+            data, label, pos, _ = self.transform((data, label, pos, file_name))
 
         label = label.transpose()
         label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel

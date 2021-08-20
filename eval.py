@@ -1,13 +1,12 @@
-import numpy as np
 import torch
 import os
 
 from torch import nn
 
 from data_logger import DataLogger
-from models import *
 import argparse
 from config_parser import Configuration
+from models.dm import DM
 from mrf_trainer import get_network
 from datasets import *
 import torchvision.transforms as transforms
@@ -16,32 +15,6 @@ from torch.utils.data import DataLoader
 
 from transforms import ApplyPD, OnlyT1T2, NoiseTransform, Normalise, Unnormalise
 from util import load_eval_files, plot_maps, plot
-import h5py
-
-
-class DM(nn.Module):
-    """
-    Implements dictionary matching.
-    """
-    def __init__(self, seq_len):
-        super().__init__()
-        dm_file = h5py.File("Data/dict.mat", 'r')
-        self.lut = torch.Tensor(np.array(dm_file.get('lut'))).cuda()
-        self.dic = torch.FloatTensor(np.array(dm_file.get('dict'))).cuda()
-        if seq_len != 1000:
-            dn = torch.Tensor(np.array(dm_file.get('dict_norm'))).cuda()
-            self.dic *= dn
-            self.dic = self.dic[:, :seq_len]
-            new_dict_norm = torch.sqrt(torch.sum(torch.abs(torch.square(self.dic)), dim=1)).unsqueeze(1)
-            self.dic /= new_dict_norm
-
-    def forward(self, x):
-        out = torch.zeros(x.shape[0], 3, device=x.device)
-        for i, fingerprint in enumerate(x):
-            fingerprint = fingerprint.unsqueeze(1)
-            dot = torch.mm(self.dic, fingerprint)
-            out[i] = self.lut[:, torch.argmax(dot)]
-        return out[:, :2]
 
 
 def log_in_vivo_sections(predicted, labels, data_logger):
@@ -72,15 +45,18 @@ def main(args, config):
         model, using_spatial, using_attention = DM(config.seq_len), False, False
     else:
         model, using_spatial, using_attention = get_network(args.network, config)
-        checkpoint = torch.load(args.path)
-        model.load_state_dict(checkpoint['model_state_dict'])
+        if args.full_model:
+            model = torch.load(f"FinalModels/{args.path}")
+        else:
+            checkpoint = torch.load(f"FinalModels/{args.path}")
+            model.load_state_dict(checkpoint['model_state_dict'])
 
     model.to(device)
     model.eval()
 
     loss_func = nn.MSELoss()
 
-    if args.snr is not None:
+    if args.cs is not None:
         complex_path = f"snr-{args.snr}_cs-{args.cs}"
         seq_len = 200
         data_transforms = transforms.Compose(
@@ -182,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-path', required=True)  # Path to the model + filename
+    parser.add_argument('-full_model', default=False, action='store_true')
     parser.add_argument('-workers', '-num_workers', '-w', dest='workers', default=0, type=int)
     parser.add_argument('-snr', default=None, type=int)
     parser.add_argument('-cs', default=None, type=int)
