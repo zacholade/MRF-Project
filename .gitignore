@@ -2,6 +2,7 @@
 CoverBLIP/
 Data/
 Exports/
+FinalModels/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
