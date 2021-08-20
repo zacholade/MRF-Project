@@ -1,3 +1,9 @@
+"""
+Wraps the brain_dict_true.m function in CoverBLIP:
+https://github.com/mgolbabaee/CoverBLIP/blob/master/CoverBLIP%20toolbox/data/brain_dict_true.m
+Generates a fingerprint per pixel in the t1/t2/pd maps and returns a 3d map of fingerprints.
+"""
+
 from typing import List
 
 import matlab
@@ -11,11 +17,6 @@ def brain_dict_true(eng,
                     pd: float,
                     off: List[int] = None,
                     rf_pulses: List[float] = None):
-    """
-    Wraps the brain_dict_true.m function in CoverBLIP:
-    https://github.com/mgolbabaee/CoverBLIP/blob/master/CoverBLIP%20toolbox/data/brain_dict_true.m
-    Generates a fingerprint per pixel in the t1/t2/pd maps and returns a 3d map of fingerprints.
-    """
     if rf_pulses is None:
         with open("../RFpulses.npy", "rb") as f:
             rf_pulses = list(np.load(f))[:1000]

@@ -1,12 +1,12 @@
-import numpy as np
-import os
-
-
 """
 This file is used to convert the original 230x230x1000 data
 a and 230x230x3 labels into a 1 dimensional format in order
 to reduce both memory space and disk size.
 """
+
+
+import numpy as np
+import os
 
 
 def get_all_data_files(folder: str = "Train", *args, **kwargs):
