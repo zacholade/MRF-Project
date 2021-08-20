@@ -35,34 +35,39 @@ class SpatioTemporalResLayer(nn.Module):
         conv2_padding = conv2_kernel_size[0] // 2, conv2_kernel_size[1] // 2, conv2_kernel_size[2] // 2
 
         if temporal_compress or spatial_compress:
-            t_stride = 2 if temporal_compress else 1
-            s_stride = 3 if spatial_compress else 1
-            # downsample with stride =2 the input x
-            self.compress_conv = block(in_channels, out_channels, 1, stride=(t_stride, s_stride, s_stride))
-            self.compress_bn = nn.BatchNorm3d(out_channels)
-
-            # down sample with stride = 2 for temporal or 3 for spatial when producing the residual
-            self.conv1 = block(in_channels, out_channels, conv1_kernel_size,
-                               padding=conv1_padding, stride=(t_stride, s_stride, s_stride))
+            # t_stride = 2 if temporal_compress else 1
+            # s_stride = 3 if spatial_compress else 1
+            # # downsample with stride =2 the input x
+            # self.compress_conv = block(in_channels, out_channels, 1, stride=(t_stride, s_stride, s_stride))
+            # self.compress_bn = nn.BatchNorm3d(out_channels)
+            #
+            # # down sample with stride = 2 for temporal or 3 for spatial when producing the residual
+            # self.conv1 = block(in_channels, out_channels, conv1_kernel_size,
+            #                    padding=conv1_padding, stride=(t_stride, s_stride, s_stride))
+            t_kernel_size = 2 if temporal_compress else 1
+            s_kernel_size = 3 if spatial_compress else 1
+            self.maxpool = nn.MaxPool3d((t_kernel_size, s_kernel_size, s_kernel_size))
         else:
-            self.conv1 = block(in_channels, out_channels, conv1_kernel_size, padding=conv1_padding)
+            ...
+        self.conv1 = block(in_channels, out_channels, conv1_kernel_size, padding=conv1_padding)
 
         self.bn1 = nn.BatchNorm3d(out_channels)
         self.relu1 = nn.ReLU()
 
         # standard conv->batchnorm->ReLU
-        self.conv2 = block(out_channels, out_channels, conv2_kernel_size, padding=conv2_padding)
+        self.conv2 = block(in_channels, out_channels, conv2_kernel_size, padding=conv2_padding)
         self.bn2 = nn.BatchNorm3d(out_channels)
         self.outrelu = nn.ReLU()
 
     def forward(self, x):
-        y = self.relu1(self.bn1(self.conv1(x)))
-        y = self.bn2(self.conv2(y))
+        y = self.relu1(self.conv1(x))
+        x = self.relu1(self.conv2(x))
 
+        x = self.outrelu(x + y)
         if self.spatial_compress or self.temporal_compress:
-            x = self.compress_bn(self.compress_conv(x))
-
-        return self.outrelu(x + y)
+            # x = self.compress_bn(self.compress_conv(x))
+            x = self.maxpool(x)
+        return x
 
 
 class NonLocalLevel:

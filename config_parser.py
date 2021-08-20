@@ -91,6 +91,10 @@ class Configuration:
         return self._config.getint(f"{self.network_name}Hyperparameters", "non_local_level")
 
     @property
+    def modern(self) -> bool:
+        return self._config.getboolean(f"{self.network_name}Hyperparameters", "modern")
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1
