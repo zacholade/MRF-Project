@@ -224,32 +224,33 @@ class TrainingAlgorithm(LoggingMixin):
             int(np.floor(len(training_dataset) / self.batch_size))
 
         for epoch in range(self.starting_epoch + 1, self.total_epochs + 1):
-            train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
-                                      num_workers=self.num_training_dataloader_workers,
-                                      sampler=BatchSampler(RandomSampler(training_dataset),
-                                                           batch_size=self.batch_size, drop_last=True))
-            train_set = iter(train_loader)
-            for current_iteration, (data, labels, pos) in enumerate(train_set):
-                data, labels = data.to(self.device), labels.to(self.device)
-                if self._should_break_early(current_iteration):
-                    break  # If in debug mode and we dont want to run the full epoch. Break early.
+            for _ in range(2):
+                train_loader = DataLoader(training_dataset, pin_memory=True, collate_fn=PixelwiseDataset.collate_fn,
+                                          num_workers=self.num_training_dataloader_workers,
+                                          sampler=BatchSampler(RandomSampler(training_dataset),
+                                                               batch_size=self.batch_size, drop_last=True))
+                train_set = iter(train_loader)
+                for current_iteration, (data, labels, pos) in enumerate(train_set):
+                    data, labels = data.to(self.device), labels.to(self.device)
+                    if self._should_break_early(current_iteration):
+                        break  # If in debug mode and we dont want to run the full epoch. Break early.
 
-                current_iteration += 1
-                predicted, loss, attention = self.train(data, labels)
+                    current_iteration += 1
+                    predicted, loss, attention = self.train(data, labels)
 
-                data, labels = data.cpu(), labels.cpu()
-                self.data_logger.log_error(predicted.detach().cpu(),
-                                           labels.detach().cpu(),
-                                           loss.detach().cpu().item(),
-                                           data_type="train")
+                    data, labels = data.cpu(), labels.cpu()
+                    self.data_logger.log_error(predicted.detach().cpu(),
+                                               labels.detach().cpu(),
+                                               loss.detach().cpu().item(),
+                                               data_type="train")
 
-                if current_iteration % max((total_iterations // 150), 1) == 0 or current_iteration == 2:
-                    self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
-                                     f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
-                                     f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
-                                     f"Loss: {loss}")
-                    if attention is not None:
-                        plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
+                    if current_iteration % max((total_iterations // 150), 1) == 0 or current_iteration == 2:
+                        self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
+                                         f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
+                                         f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
+                                         f"Loss: {loss}")
+                        if attention is not None:
+                            plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
 
             if not skip_valid:
                 with torch.no_grad():
