@@ -144,7 +144,7 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: b
     shuffle_indices = np.arange(num_files)
     np.random.shuffle(shuffle_indices)
     num_test = 10
-    num_train = num_files - num_test
+    num_train = 35
     # num_train = int(num_files / 24 * 21)  # With 120 files splits train/test into 105 and 15 respectfully
     # num_test = num_files - num_train
 
