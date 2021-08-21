@@ -1,3 +1,11 @@
+"""
+Useful script for converting uncompressed MRF data into compressed
+equivilent. I.e. a 230 x 230 x 1000 dimensional scan will be masked to remove empty
+fingerprints. The resulting data will be reshaped into n x 1000, where n denotes
+the number of fingerprints in the scan after masking out the air fingerprints.
+Shrinks data in half.
+"""
+
 import numpy as np
 import os
 

@@ -36,7 +36,7 @@ plt.show()
 
 eng.addpath("CoverBLIP/CoverBLIP toolbox/data")
 
-t1s = np.flip(np.arange(50, 3050, 50))
+t1s = np.flip(np.arange(100, 3050, 100))
 print(t1s)
 t2 = 100
 pd = 100
