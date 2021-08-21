@@ -1,3 +1,5 @@
+import math
+
 import torch
 import os
 
@@ -14,6 +16,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import matplotlib.pylab as pl
+from matplotlib.ticker import MaxNLocator
 
 from transforms import ApplyPD, OnlyT1T2, NoiseTransform, Normalise, Unnormalise
 from util import load_eval_files, plot_maps, plot
@@ -23,27 +26,52 @@ def plot_1d_nlocal_attention2(attention, data):
     attention = attention.detach().cpu().numpy()
     batch_index = 10
     attention = attention[batch_index]
+    data = data[batch_index]
     attention -= (1 / 300)  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
     plt.tight_layout()
-    fig, ax = plt.subplots(5, 1, figsize=(12, 7))
+    fig, ax = plt.subplots(6, 1, figsize=(12, 7))
 
     plt.margins(0)
-    # ax[axis].set_ylabel("Attention Score (a.u.)", family='Arial', fontsize=15)
-    # ax[axis].set_xlabel("Timestep", family='Arial', fontsize=15)
-    for axis in range(5):
+    plt.xlabel("Time Point (or channel)", labelpad=20)
+    fig.text(0.05, 0.35, "Normalised Attention Score", rotation='vertical')
+
+    largest_value = 0
+    max_value = 0
+    for i, attention_line in enumerate(attention[np.array([0, 60, 120, 180, 240, 299])]):
+        max_value = max(np.max(np.abs(attention_line)), max_value)
+        print(i)
+        # ax[i//60].plot(np.zeros(len(attention_line)), linewidth=1, color='black')
+        ax[i].plot(attention_line)
+
+    nearest_005 = math.ceil(max_value * 200) / 200  # Round to nearest 0.005
+    for axis in range(6):
         ax[axis].spines['top'].set_visible(False)
         ax[axis].spines['right'].set_visible(False)
-        ax[axis].spines['bottom'].set_visible(False)
-        ax[axis].set_ylim([-0.004, 0.006])
+        ax[axis].set_ylim([-nearest_005, nearest_005])
         ax[axis].set_xlim([0, 300])
-        ax[axis].xaxis.set_ticks_position('middle')
+        ax[axis].spines['bottom'].set_position('center')
+        # ax[axis].set_xticklabels(ax[axis].get_xticks(), rotation=90)
 
-    for i, attention_line in enumerate(attention):
-        if i % 60 == 0:
-            print(i//60)
-            ax[i//60].plot(np.zeros(len(attention_line)), linewidth=1, color='black')
-            ax[i//60].plot(attention_line, linewidth=1)
+
+    # Data plot
+    fig_data, ax_data = plt.subplots(1, 1, figsize=(12, 7))
+    ax_data.set_ylabel("Normalised fingeprint (a.u.)", family='Arial', fontsize=15)
+    ax_data.set_xlabel("Excitation number", family='Arial', fontsize=15)
+    plt.margins(0)
+    plt.grid()  # linewidth=0.1, color='black')
+    ax_data.spines['right'].set_linewidth(0.5)
+    ax_data.spines['top'].set_linewidth(0.5)
+    ax_data.spines['right'].set_color('grey')
+    ax_data.spines['top'].set_color('grey')
+    nearest_005 = math.ceil(np.max(np.abs(data)) * 20) / 20  # Round to nearest 0.005
+    ax_data.set_ylim([0, nearest_005])
+    ax_data.set_xlim([0, 300])
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    ax_data.plot(np.abs(data))
+
     plt.show()
+
 
 def plot_1d_nlocal_attention(attention, data):
     attention = attention.detach().cpu().numpy()
@@ -187,7 +215,7 @@ def main(args, config):
             # print(attention.shape)
             # plt.matshow(attention, vmin=vmin, vmax=vmax, cmap='hot')
             # plt.show()
-            plot_1d_nlocal_attention2(attention, data)
+            plot_1d_nlocal_attention2(attention, data.detach().cpu().numpy())
             plot_1d_nlocal_attention(attention, data)
 
         loss = loss_func(predicted, labels)
