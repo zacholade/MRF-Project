@@ -346,9 +346,7 @@ def get_network(network: str, config):
 def main(args, config, logger):
     repo = git.Repo(search_parent_directories=True)
     if not config.debug and repo.is_dirty(submodules=False):
-        logger.info("Git head is not clean. Exiting...")
-        import sys
-        sys.exit(0)
+        logger.info("Git head is not clean")
 
     file_limit = config.limit_number_files if args.file_limit < 0 else args.file_limit
     # If true, return type from model.forward() is ((batch_size, labels), attention)
