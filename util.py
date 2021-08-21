@@ -43,6 +43,9 @@ def get_all_data_files(compressed: bool, test: bool = False, complex_path: str =
     if len(fingerprint_files) != len(label_files):
         raise RuntimeError("Differing data inside Data/Label folders!")
 
+    print(fingerprint_files)
+    print(fingerprint_path)
+    print(label_path)
     # Shuffle two lists the same way.
     to_shuffle = list(zip(fingerprint_files, label_files))
     np.random.shuffle(to_shuffle)
