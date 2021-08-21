@@ -204,7 +204,8 @@ class TrainingAlgorithm(LoggingMixin):
             (valid_data, valid_labels, valid_file_lens, valid_file_names, valid_pos) = \
                 load_all_data_files(seq_len=self.seq_len,
                                     file_limit=self.limit_number_files,
-                                    compressed=False)
+                                    compressed=False,
+                                    debug=self.debug)
             training_dataset = PatchwiseDataset(self.model.patch_size, train_pos, train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
             validation_dataset = ScanPatchwiseDataset(self.valid_chunks, self.model.patch_size, valid_pos, valid_data, valid_labels, valid_file_lens,
@@ -214,7 +215,8 @@ class TrainingAlgorithm(LoggingMixin):
             (valid_data, valid_labels, valid_file_lens, valid_file_names) = \
                 load_all_data_files(seq_len=self.seq_len,
                                     file_limit=self.limit_number_files,
-                                    compressed=True)
+                                    compressed=True,
+                                    debug=self.debug)
             training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
             validation_dataset = ScanwiseDataset(self.valid_chunks, valid_data, valid_labels, valid_file_lens,
@@ -250,7 +252,8 @@ class TrainingAlgorithm(LoggingMixin):
                                          f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
                                          f"Loss: {loss}")
                         if attention is not None:
-                            plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
+                            ...
+                            # plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
 
             if not skip_valid:
                 with torch.no_grad():
@@ -268,20 +271,22 @@ class TrainingAlgorithm(LoggingMixin):
             self.data_logger.on_epoch_end(epoch)
             self.logger.info(f"Epoch {epoch} complete")
 
-            # Early stop logic
-            self._epochs_without_improvement += 1
-            if validation_mape < self._lowest_error:
-                self._epochs_without_improvement = 0
-                self._best_epoch = epoch
-                self._lowest_error = validation_mape
-            if self._epochs_without_improvement > self._patience:
-                self.logger.warning(f"{self._patience} epochs have passed without improving. Stopping training.")
-                self._should_stop = True  # Terminate training here if this reaches.
+            if epoch > 50:
+                # Early stop logic
+                self._epochs_without_improvement += 1
+                if validation_mape < self._lowest_error:
+                    self._epochs_without_improvement = 0
+                    self._best_epoch = epoch
+                    self._lowest_error = validation_mape
+                if self._epochs_without_improvement > self._patience:
+                    self.logger.warning(f"{self._patience} epochs have passed without improving. Stopping training.")
+                    self._should_stop = True  # Terminate training here if this reaches.
+                    break
 
-            self.logger.info(f"Epochs wt/out improv: {self._epochs_without_improvement}, "
-                             f"Best epoch: {self._best_epoch}, "
-                             f"Lowest Valid MAPE: {self._lowest_error}, "
-                             f"Should Stop: {self._should_stop}")
+                self.logger.info(f"Epochs wt/out improv: {self._epochs_without_improvement}, "
+                                 f"Best epoch: {self._best_epoch}, "
+                                 f"Lowest Valid MAPE: {self._lowest_error}, "
+                                 f"Should Stop: {self._should_stop}")
 
 
 def get_network(network: str, config):
@@ -307,6 +312,7 @@ def get_network(network: str, config):
                              batch_size=config.batch_size, seq_len=config.seq_len,
                              num_layers=config.rnn_num_layers, bidirectional=config.rnn_bidirectional)
     elif network == 'song':
+        using_attention=True
         model = Song(seq_len=config.seq_len)
     elif network == 'soyak':
         using_spatial = True

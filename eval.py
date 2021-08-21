@@ -11,10 +11,73 @@ from mrf_trainer import get_network
 from datasets import *
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.pylab as pl
 
 from transforms import ApplyPD, OnlyT1T2, NoiseTransform, Normalise, Unnormalise
 from util import load_eval_files, plot_maps, plot
+
+
+def plot_1d_nlocal_attention2(attention, data):
+    attention = attention.detach().cpu().numpy()
+    batch_index = 10
+    attention = attention[batch_index]
+    attention -= (1 / 300)  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
+    plt.tight_layout()
+    fig, ax = plt.subplots(5, 1, figsize=(12, 7))
+
+    plt.margins(0)
+    # ax[axis].set_ylabel("Attention Score (a.u.)", family='Arial', fontsize=15)
+    # ax[axis].set_xlabel("Timestep", family='Arial', fontsize=15)
+    for axis in range(5):
+        ax[axis].spines['top'].set_visible(False)
+        ax[axis].spines['right'].set_visible(False)
+        ax[axis].spines['bottom'].set_visible(False)
+        ax[axis].set_ylim([-0.004, 0.006])
+        ax[axis].set_xlim([0, 300])
+        ax[axis].xaxis.set_ticks_position('middle')
+
+    for i, attention_line in enumerate(attention):
+        if i % 60 == 0:
+            print(i//60)
+            ax[i//60].plot(np.zeros(len(attention_line)), linewidth=1, color='black')
+            ax[i//60].plot(attention_line, linewidth=1)
+    plt.show()
+
+def plot_1d_nlocal_attention(attention, data):
+    attention = attention.detach().cpu().numpy()
+    batch_index = 10
+    attention = attention[batch_index]
+    attention -= (1 / 300)  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
+    plt.tight_layout()
+    fig, ax = plt.subplots(1, 2, figsize=(12, 7))
+    # with open("out_csv.csv", 'a', newline='') as file:
+    my_cmap = cm.viridis
+    colors = pl.cm.viridis(np.linspace(0, 1, data.shape[1]))
+    sm = plt.cm.ScalarMappable(cmap=my_cmap, norm=plt.Normalize(vmin=0, vmax=300))
+    cbar = plt.colorbar(sm)
+    cbar.ax.tick_params(labelsize=15)
+    cbar.ax.set_ylabel("Excitation number", labelpad=15, family='Arial', fontsize=15)
+    ax[1].set_ylabel("Attention Score (a.u.)", family='Arial', fontsize=15)
+    ax[1].set_xlabel("Per timestep attention", family='Arial', fontsize=15)
+    plt.margins(0)
+    plt.grid()  # linewidth=0.1, color='black')
+    ax[1].spines['right'].set_linewidth(0.5)
+    ax[1].spines['top'].set_linewidth(0.5)
+    ax[1].spines['right'].set_color('grey')
+    ax[1].spines['top'].set_color('grey')
+    ax[1].set_ylim([np.min(attention[0:299:10].flatten()), np.max(attention[0:299:10].flatten())])
+    ax[1].set_xlim([0, 300])
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+
+    for i, attention_line in enumerate(attention):
+        if i % 10 == 0:
+            ax[1].plot(attention_line, color=colors[i], linewidth=1)
+
+    im = ax[0].plot(np.abs(data[batch_index, :].detach().cpu().numpy()))
+    plt.show()
 
 
 def log_in_vivo_sections(predicted, labels, data_logger):
@@ -65,7 +128,7 @@ def main(args, config):
         complex_path = None
         seq_len = config.seq_len
         data_transforms = transforms.Compose(
-            [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
+            [Unnormalise(), ApplyPD(), Normalise(), OnlyT1T2()])
 
     if using_spatial:
         _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=seq_len,
@@ -109,10 +172,24 @@ def main(args, config):
               f"Chunk: {((current_chunk - 1) % args.chunks) + 1} / "
               f"{args.chunks}")
         data, labels = data.to(device), labels.to(device)
+        attention = None
         predicted = model.forward(data)
         if isinstance(predicted, tuple):
             attention = predicted[1]
             predicted = predicted[0]
+
+        if attention is not None:
+            # attention = attention.cpu().detach().numpy()
+            # data = data.detach().cpu().numpy()
+            # vmin = np.min(attention[10][0:299:10].flatten())
+            # vmax = np.max(attention[10][0:299:10].flatten())
+            # attention = attention[10, 0:299:1, 0:299:1]
+            # print(attention.shape)
+            # plt.matshow(attention, vmin=vmin, vmax=vmax, cmap='hot')
+            # plt.show()
+            plot_1d_nlocal_attention2(attention, data)
+            plot_1d_nlocal_attention(attention, data)
+
         loss = loss_func(predicted, labels)
 
         data, labels = data.cpu(), labels.cpu()

@@ -58,7 +58,7 @@ class _NonLocalBlockND(nn.Module):
             self.g = nn.Sequential(self.g, max_pool)
             self.phi = nn.Sequential(self.g, max_pool)
 
-    def forward(self, x):
+    def forward(self, x, return_nl_map=False):
         batch_size = x.size(0)
 
         g_x = self.g(x).view(batch_size, self.inter_dim, -1)
@@ -76,6 +76,8 @@ class _NonLocalBlockND(nn.Module):
         W_y = self.w(y)
         z = W_y + x
 
+        if return_nl_map:
+            return z, f_div_C
         return z
 
 

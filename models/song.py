@@ -68,7 +68,7 @@ class Song(nn.Module):
         batch_size = x.shape[0]
         x = x.view(batch_size, 1, -1)
         x = self.conv1ds(x)
-        x = self.nloc_0(x)
+        x, nl_map = self.nloc_0(x, return_nl_map=True)
 
         x = self.maxp_1(x)
         x = self.resx_1(x)
@@ -86,7 +86,7 @@ class Song(nn.Module):
         x = self.nloc_3(x + y)
         x = x.mean(2)
         x = self.out(x)
-        return x
+        return x, nl_map
 
     def _init_weights(self, m):
         if isinstance(m, nn.Conv1d):

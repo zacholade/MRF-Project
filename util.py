@@ -127,7 +127,7 @@ def load_eval_files(seq_len: int = 1000, compressed: bool = True, complex_path: 
         return uncompressed_gen_data(data_file_names, label_file_names, max_size, seq_len)
 
 
-def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: bool = True):
+def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: bool = True, debug: bool = False):
     data_file_names, label_file_names = get_all_data_files(compressed)
 
     if file_limit > 0:
@@ -143,10 +143,13 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: b
 
     shuffle_indices = np.arange(num_files)
     np.random.shuffle(shuffle_indices)
-    num_test = 10
-    num_train = 35
-    # num_train = int(num_files / 24 * 21)  # With 120 files splits train/test into 105 and 15 respectfully
-    # num_test = num_files - num_train
+    if debug:
+        num_train = int(num_files / 24 * 21)  # With 120 files splits train/test into 105 and 15 respectfully
+        num_test = num_files - num_train
+    else:
+        num_test = 10
+        num_train = 35
+
 
     if num_test == 0 and num_train > 1:
         num_test += 1
