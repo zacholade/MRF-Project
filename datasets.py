@@ -100,15 +100,20 @@ class PatchwiseDataset(PixelwiseDataset):
         self.pos = pos
         self.patch_return_size = patch_return_size
 
+        padding_width_top_left = padding_width_bottom_right = patch_size // 2  # padding width on each side. In-case patch goes out of frame of the image.
+        if patch_return_size > 1:
+            padding_width_bottom_right += (230 % patch_size)
+
+        self.padding_width = padding_width_top_left
+        self.labels = np.pad(self.labels,
+                             pad_width=((0, 0), (padding_width_top_left, padding_width_bottom_right),
+                                        (padding_width_top_left, padding_width_bottom_right), (0, 0)))
+        self.data = np.pad(self.data,
+                           pad_width=((0, 0), (padding_width_top_left, padding_width_bottom_right),
+                                      (padding_width_top_left, padding_width_bottom_right), (0, 0)))
+
         if patch_return_size > 1:
             self._calculate_new_len()
-
-        padding_width = patch_size // 2  # padding width on each side. In-case patch goes out of frame of the image.
-        self.padding_width = padding_width
-        self.labels = np.pad(self.labels,
-                             pad_width=((0, 0), (padding_width, padding_width), (padding_width, padding_width), (0, 0)))
-        self.data = np.pad(self.data,
-                           pad_width=((0, 0), (padding_width, padding_width), (padding_width, padding_width), (0, 0)))
 
     @property
     def _patch_gap(self):
@@ -132,10 +137,10 @@ class PatchwiseDataset(PixelwiseDataset):
             pd = label_file[:, :, 2]
             masked_map = pd != 0
             central_pixel_indices = []
-            for x_pos in range(patch_radius, 230 - patch_radius, self._patch_gap):
-                for y_pos in range(patch_radius, 230 - patch_radius, self._patch_gap):
-                    spatial_xs = np.tile(x_pos + np.arange(0 - patch_radius, 1 + patch_radius, 1), patch_diameter)
-                    spatial_ys = np.repeat(y_pos + np.arange(0 - patch_radius, 1 + patch_radius, 1), patch_diameter)
+            for x_pos in range(0, 229 + (230 % patch_diameter), self._patch_gap):
+                for y_pos in range(0, 229 + (230 % patch_diameter), self._patch_gap):
+                    spatial_xs = np.tile(x_pos + np.arange(0 - patch_radius, 1 + patch_radius, 1), patch_diameter) + self.padding_width
+                    spatial_ys = np.repeat(y_pos + np.arange(0 - patch_radius, 1 + patch_radius, 1), patch_diameter) + self.padding_width
                     patch = masked_map[spatial_xs, spatial_ys]
                     if np.any(patch):  # One pixel in the patch is not air.
                         central_pixel_indices.append(x_pos * 230 + (y_pos))

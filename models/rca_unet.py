@@ -66,19 +66,18 @@ class FeatureExtraction(nn.Module):
 
 
 class SubRCAUNet(nn.Module):
-    def __init__(self, seq_len: int, patch_size: int, temporal_features: int):
+    def __init__(self, seq_len: int, patch_size: int, temporal_features: int, attention: bool = False):
         super().__init__()
         self.seq_len = seq_len
         self.patch_size = patch_size
-        dim = 64
         factor = 2
-        self.in_conv = Convs(temporal_features, dim, rcab=True)
-        self.down1 = Downsample(64, 128, rcab=True)
-        self.down2 = Downsample(128, 256, rcab=True)
-        self.down3 = Downsample(256, 512 // factor, rcab=True)
-        self.up1 = Upsample(512, 256 // factor, rcab=True)
-        self.up2 = Upsample(256, 128 // factor, rcab=True)
-        self.up3 = Upsample(128, 64 // factor, rcab=True)
+        self.in_conv = Convs(temporal_features, 64, rcab=attention)
+        self.down1 = Downsample(64, 128, rcab=attention)
+        self.down2 = Downsample(128, 256, rcab=attention)
+        self.down3 = Downsample(256, 512 // factor, rcab=attention)
+        self.up1 = Upsample(512, 256 // factor, rcab=attention)
+        self.up2 = Upsample(256, 128 // factor, rcab=attention)
+        self.up3 = Upsample(128, 64 // factor, rcab=attention)
         self.out_conv = Convs(32, 1, rcab=False)
 
     def forward(self, x):
@@ -90,21 +89,20 @@ class SubRCAUNet(nn.Module):
         x = self.up2(x, x2)
         x = self.up3(x, x1)
         x = self.out_conv(x)
-        return x[:, :, self.patch_size // 2, self.patch_size // 2]
+        return x#[:, :, self.patch_size // 2, self.patch_size // 2]
 
 
 class RCAUNet(nn.Module):
-    def __init__(self, seq_len: int, patch_size: int, temporal_features: int):
+    def __init__(self, seq_len: int, patch_size: int, temporal_features: int, attention: bool = False):
         super().__init__()
         self.patch_size = patch_size
         self.feature_extractor = FeatureExtraction(seq_len, temporal_features)
         # Fang used separate UNet architectures for t1 and t2 classification.
-        self.t1_net = SubRCAUNet(seq_len, patch_size, temporal_features)
-        self.t2_net = SubRCAUNet(seq_len, patch_size, temporal_features)
+        self.t1_net = SubRCAUNet(seq_len, patch_size, temporal_features, attention)
+        self.t2_net = SubRCAUNet(seq_len, patch_size, temporal_features, attention)
 
     def forward(self, x):
         x = self.feature_extractor(x.transpose(1, 3))
         t1 = self.t1_net(x)
         t2 = self.t2_net(x)
-        return torch.cat((t1, t2), dim=1)
-
+        return torch.cat((t1, t2), dim=1).transpose(3, 1)
