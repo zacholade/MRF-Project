@@ -64,7 +64,7 @@ class ChannelGate(nn.Module):
                 channel_att_sum = channel_att_sum + channel_att_raw
 
         scale = torch.sigmoid(channel_att_sum).unsqueeze(2).unsqueeze(3).expand_as(x)
-        return x * scale
+        return x * scale, scale
 
 
 def logsumexp_2d(tensor):
@@ -96,13 +96,17 @@ class SpatialGate(nn.Module):
 class CBAM(nn.Module):
     def __init__(self, gate_channels, reduction_ratio=16, pool_types=['avg', 'max'], no_spatial=False):
         super(CBAM, self).__init__()
-        self.ChannelGate = ChannelGate(gate_channels, reduction_ratio, pool_types)
-        self.no_spatial=no_spatial
+        self.channel_gate = ChannelGate(gate_channels, reduction_ratio, pool_types)
+        self.no_spatial = no_spatial
         if not no_spatial:
-            self.SpatialGate = SpatialGate()
+            self.spatial_gate = SpatialGate()
 
-    def forward(self, x):
-        x_out = self.ChannelGate(x)
+    def forward(self, x, return_scale: bool = False):
+        x_out, scale = self.channel_gate(x)
+
         if not self.no_spatial:
-            x_out = self.SpatialGate(x_out)
+            x_out = self.spatial_gate(x_out)
+
+        if return_scale:
+            return x_out, scale
         return x_out

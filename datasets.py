@@ -3,6 +3,8 @@ from typing import Callable
 import numpy as np
 import torch.utils.data
 
+from util import get_inner_patch
+
 
 class PixelwiseDataset(torch.utils.data.Dataset):
     """
@@ -92,16 +94,73 @@ class PatchwiseDataset(PixelwiseDataset):
     fingerprints about that location. One patch of fingerprints per fingerprint.
     Eg with a patchsize of 5 (that is 5x5). Each index will return 25 fingerprints/labels.
     """
-    def __init__(self, patch_size: int, pos, *args, **kwargs):
+    def __init__(self, patch_size: int, pos, patch_return_size: int = 1, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.patch_size = patch_size ** 2
+        self.pos = pos
+        self.patch_return_size = patch_return_size
+
+        if patch_return_size > 1:
+            self._calculate_new_len()
+
         padding_width = patch_size // 2  # padding width on each side. In-case patch goes out of frame of the image.
         self.padding_width = padding_width
         self.labels = np.pad(self.labels,
                              pad_width=((0, 0), (padding_width, padding_width), (padding_width, padding_width), (0, 0)))
         self.data = np.pad(self.data,
                            pad_width=((0, 0), (padding_width, padding_width), (padding_width, padding_width), (0, 0)))
-        self.patch_size = patch_size ** 2
-        self.pos = pos
+
+    @property
+    def _patch_gap(self):
+        """
+        distance between patches. 1 for training so we get all possible patch positions.
+        For eval this is the patch return diameter. only takes effect if patches return
+        more than just the prediction of the central patch pixel.
+        """
+        return 1
+
+    def _calculate_new_len(self):
+        """
+        Helper function to transform data if the model returns a prediction for an entire spatial patch
+        as opposed to JUST the central pixel. Eg U-net which returns a large patch prediction
+        as opposed to just 1x1 prediction given a input patch.
+        """
+        patch_diameter = self.patch_return_size
+        patch_radius = patch_diameter // 2
+        filewise_central_pixel_indices = []
+        for label_file in self.labels:
+            pd = label_file[:, :, 2]
+            masked_map = pd != 0
+            central_pixel_indices = []
+            for x_pos in range(patch_radius, 230 - patch_radius, self._patch_gap):
+                for y_pos in range(patch_radius, 230 - patch_radius, self._patch_gap):
+                    spatial_xs = np.tile(x_pos + np.arange(0 - patch_radius, 1 + patch_radius, 1), patch_diameter)
+                    spatial_ys = np.repeat(y_pos + np.arange(0 - patch_radius, 1 + patch_radius, 1), patch_diameter)
+                    patch = masked_map[spatial_xs, spatial_ys]
+                    if np.any(patch):  # One pixel in the patch is not air.
+                        central_pixel_indices.append(x_pos * 230 + (y_pos))
+            filewise_central_pixel_indices.append(central_pixel_indices)
+
+        file_lens = []
+        for central_pixel_indices in filewise_central_pixel_indices:
+            file_lens.append(len(central_pixel_indices))
+
+        self._file_lens = np.array(file_lens, dtype=int)
+        self._cum_file_lens = np.cumsum(self._file_lens)
+        self._num_total_pixels = np.sum(self._file_lens)
+
+        # Work out max size for padding purposes
+        max_size = 0
+        for central_pixel_indices in filewise_central_pixel_indices:
+            if len(central_pixel_indices) > max_size:
+                max_size = len(central_pixel_indices)
+
+        # Apply padding
+        for central_pixel_indices in filewise_central_pixel_indices:
+            while len(central_pixel_indices) < max_size:
+                central_pixel_indices.append(0)
+
+        self._patch_offset_indices = np.array(filewise_central_pixel_indices, dtype=int)
 
     def __len__(self):
         return self._num_total_pixels
@@ -111,7 +170,12 @@ class PatchwiseDataset(PixelwiseDataset):
         batch_size = index.shape[0]
         file_index = np.argmin((index[:, np.newaxis] // self._cum_file_lens), axis=1)
         datapoint_index = index % (self._cum_file_lens[file_index - 1])
-        pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
+
+        if self.patch_return_size > 1:
+            pixel_index = self._patch_offset_indices[file_index, datapoint_index]
+        else:
+            pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
+
         x = pixel_index // 230 + self.padding_width  # apply padding width offset!
         y = pixel_index % 230 + self.padding_width
         patch_diameter = int(np.sqrt(self.patch_size))
@@ -134,8 +198,18 @@ class PatchwiseDataset(PixelwiseDataset):
             data, label, pos, _ = self.transform((data, label, pos, None))
 
         label = label.transpose()
-        label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel
-        pos = pos[int(self.patch_size // 2)::self.patch_size]  # Pos is the central pixel
+
+        if self.patch_return_size == 1:
+            label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel
+            pos = pos[int(self.patch_size // 2)::self.patch_size]  # Pos is the central pixel
+        else:
+            label = label.reshape(batch_size, patch_diameter, patch_diameter, -1)
+            pos = pos.reshape(batch_size, patch_diameter, patch_diameter, -1)
+            label = get_inner_patch(label, self.patch_return_size)
+            pos = get_inner_patch(pos, self.patch_return_size)
+            label = label.reshape(-1, 2)
+            pos = pos.reshape(-1)
+
         data = data.reshape(batch_size, patch_diameter, patch_diameter, -1).transpose((0, 3, 1, 2))
         return data, label, pos
 
@@ -163,7 +237,12 @@ class ScanPatchwiseDataset(PatchwiseDataset):
             batch_size = self._file_lens[file_index] // self.chunks
         file_name = self._file_names[file_index]
         datapoint_index = np.arange(batch_size) + (chunk * (self._file_lens[file_index] // self.chunks))
-        pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
+
+        if self.patch_return_size > 1:
+            pixel_index = self._patch_offset_indices[file_index, datapoint_index]
+        else:
+            pixel_index = self.pos[file_index, datapoint_index].squeeze(1)
+
         x = pixel_index // 230 + self.padding_width  # apply padding width offset!
         y = pixel_index % 230 + self.padding_width
         patch_diameter = int(np.sqrt(self.patch_size))
@@ -185,7 +264,20 @@ class ScanPatchwiseDataset(PatchwiseDataset):
             data, label, pos, _ = self.transform((data, label, pos, file_name))
 
         label = label.transpose()
-        label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel
-        pos = pos[int(self.patch_size // 2)::self.patch_size]  # Pos is the central pixel
+
+        if self.patch_return_size == 1:
+            label = label[int(self.patch_size // 2)::self.patch_size, :]  # Label is the central pixel
+            pos = pos[int(self.patch_size // 2)::self.patch_size]  # Pos is the central pixel
+        else:
+            label = label.reshape(batch_size, patch_diameter, patch_diameter, -1)
+            pos = pos.reshape(batch_size, patch_diameter, patch_diameter, -1)
+            label = get_inner_patch(label, self.patch_return_size)
+            pos = get_inner_patch(pos, self.patch_return_size)
+            label = label.reshape(-1, 2)
+            pos = pos.reshape(-1)
         data = data.reshape(batch_size, patch_diameter, patch_diameter, -1).transpose((0, 3, 1, 2))
         return data, label, pos, file_name
+
+    @property
+    def _patch_gap(self):
+        return self.patch_return_size

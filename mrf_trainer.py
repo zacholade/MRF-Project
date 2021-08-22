@@ -22,7 +22,7 @@ from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
                     Balsiger, R2Plus1DTemporalNonLocal, Soyak)
 from models.r2plus1d import R2Plus1D
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise
-from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp
+from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp, get_inner_patch
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -44,6 +44,7 @@ class TrainingAlgorithm(LoggingMixin):
                  plot_every: int = -1,
                  using_attention: bool = False,
                  using_spatial: bool = False,
+                 patch_return_size: int = False,
                  valid_chunks: int = 1,
                  debug: bool = False,
                  limit_number_files: int = -1,
@@ -67,6 +68,7 @@ class TrainingAlgorithm(LoggingMixin):
         self.plot_every = plot_every  # Save a reconstruction plot every n epochs.
         self.using_attention = using_attention
         self.using_spatial = using_spatial
+        self.patch_return_size = patch_return_size
         self.valid_chunks = valid_chunks
         self.debug = debug
         self.limit_number_files = limit_number_files
@@ -113,13 +115,17 @@ class TrainingAlgorithm(LoggingMixin):
             attention = predicted[1]
             predicted = predicted[0]
 
+        if self.patch_return_size > 1:
+            predicted = get_inner_patch(predicted, self.patch_return_size, use_torch=True).view(-1, 2)
+            predicted, labels = self._remove_zero_labels(predicted, labels)
+
         loss = self.loss(predicted, labels)
         self.optimiser.zero_grad()
         loss.backward()
         self.optimiser.step()
-        return predicted, loss, attention
+        return predicted, labels, loss, attention
 
-    def validate(self, data, labels):
+    def validate(self, data, labels, pos):
         self.model.eval()
         predicted = self.model.forward(data)
 
@@ -128,8 +134,12 @@ class TrainingAlgorithm(LoggingMixin):
             attention = predicted[1]
             predicted = predicted[0]
 
+        if self.patch_return_size > 1:
+            predicted = get_inner_patch(predicted, self.patch_return_size, use_torch=True).view(-1, 2)
+            predicted, labels, pos = self._remove_zero_labels(predicted, labels, pos)
+
         loss = self.loss(predicted, labels)
-        return predicted, loss, attention
+        return predicted, labels, pos, loss, attention
 
     def _should_break_early(self, current_iteration) -> bool:
         return self.debug and self.limit_iterations > 0 and \
@@ -158,7 +168,7 @@ class TrainingAlgorithm(LoggingMixin):
                              f"Chunk: {((current_chunk - 1) % self.valid_chunks) + 1} / "
                              f"{self.valid_chunks}")
             data, labels = data.to(self.device), labels.to(self.device)
-            predicted, loss, attention = self.validate(data, labels)
+            predicted, labels, pos, loss, attention = self.validate(data, labels, pos)
             data, labels = data.cpu(), labels.cpu()
             chunk_loss += loss.detach().cpu().item()
             chunk_predicted = predicted.detach().cpu() if chunk_predicted is None else \
@@ -195,6 +205,18 @@ class TrainingAlgorithm(LoggingMixin):
         self.logger.info(f"Validation MAPE: {epoch_valid_mape}")
         return epoch_valid_mape
 
+    def _remove_zero_labels(self, predicted, labels, pos=None):
+        """
+        Some models return a full patch prediction (soyak, rca-unet).
+        In these cases, some labels will contain air. Remove these from predicted and labels
+        so we dont back prop on them as they are later masked
+        and so that we dont result in infinity values for MAPE due to label being zero.
+        """
+        mask = labels[:, 0] != 0
+        if pos is not None:
+            return predicted[mask], labels[mask], pos[mask]
+        return predicted[mask], labels[mask]
+
     def loop(self, skip_valid):
         validation_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
         training_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
@@ -206,9 +228,11 @@ class TrainingAlgorithm(LoggingMixin):
                                     file_limit=self.limit_number_files,
                                     compressed=False,
                                     debug=self.debug)
-            training_dataset = PatchwiseDataset(self.model.patch_size, train_pos, train_data, train_labels, train_file_lens,
+            training_dataset = PatchwiseDataset(self.model.patch_size, train_pos, self.patch_return_size,
+                                                train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
-            validation_dataset = ScanPatchwiseDataset(self.valid_chunks, self.model.patch_size, valid_pos, valid_data, valid_labels, valid_file_lens,
+            validation_dataset = ScanPatchwiseDataset(self.valid_chunks, self.model.patch_size, valid_pos, self.patch_return_size,
+                                                      valid_data, valid_labels, valid_file_lens,
                                                       valid_file_names, transform=validation_transforms)
         else:
             (train_data, train_labels, train_file_lens, train_file_names), \
@@ -238,7 +262,7 @@ class TrainingAlgorithm(LoggingMixin):
                         break  # If in debug mode and we dont want to run the full epoch. Break early.
 
                     current_iteration += 1
-                    predicted, loss, attention = self.train(data, labels)
+                    predicted, labels, loss, attention = self.train(data, labels)
 
                     data, labels = data.cpu(), labels.cpu()
                     self.data_logger.log_error(predicted.detach().cpu(),
@@ -292,6 +316,7 @@ class TrainingAlgorithm(LoggingMixin):
 def get_network(network: str, config):
     using_spatial = False  # If true input is fed as patches.
     using_attention = False
+    patch_return_size = 1
 
     if network == 'cohen':
         model = CohenMLP(seq_len=config.seq_len)
@@ -316,6 +341,7 @@ def get_network(network: str, config):
         model = Song(seq_len=config.seq_len)
     elif network == 'soyak':
         using_spatial = True
+        patch_return_size = config.patch_size - 2
         model = Soyak(patch_size=config.patch_size, seq_len=config.seq_len)
     elif network == 'patch_size':
         using_spatial = True
@@ -346,7 +372,7 @@ def get_network(network: str, config):
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
         sys.exit(1)
-    return model, using_spatial, using_attention
+    return model, using_spatial, using_attention, patch_return_size
 
 
 def main(args, config, logger):
@@ -356,7 +382,7 @@ def main(args, config, logger):
 
     file_limit = config.limit_number_files if args.file_limit < 0 else args.file_limit
     # If true, return type from model.forward() is ((batch_size, labels), attention)
-    model, using_spatial, using_attention = get_network(args.network, config)
+    model, using_spatial, using_attention, patch_return_size = get_network(args.network, config)
 
     export_dir = get_exports_dir(model, args)
     file_handler = logging.FileHandler(f"{export_dir}/logs.log")
@@ -388,6 +414,7 @@ def main(args, config, logger):
                                 plot_every=args.plot_every,
                                 using_attention=using_attention,
                                 using_spatial=using_spatial,
+                                patch_return_size=patch_return_size,
                                 valid_chunks=args.chunks,
                                 debug=args.debug,
                                 limit_number_files=file_limit,

@@ -5,6 +5,7 @@ from multiprocessing import Process
 
 import git
 import numpy as np
+import torch
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
@@ -296,6 +297,7 @@ def plot_fp(fingerprint, epoch: int = 0, save_dir=None):
     # Closes all the figure windows.
     gc.collect()
 
+
 def plot(func, *args, **kwargs):
     """
     Matplotlib has a memory leak which causes memory to grow in the training loop...
@@ -312,3 +314,31 @@ def plot(func, *args, **kwargs):
     p.start()
     p.join()
 
+
+def get_inner_patch(x, patch_diameter: int, use_torch: bool = False):
+    """
+    Input tensor of shape (batch_size, orig_patch, orig_patch, features)
+    returns tensor of shape (batch_size, patch_diameter, patch_diameter, features).
+    essentially shrinks patch to new size around center! Key is that it takes place in center.
+    """
+    orig_patch_size = x.shape[1]
+    central_index = orig_patch_size // 2
+    batch_size = x.shape[0]
+    if use_torch:
+        spatial_xs = torch.tile(
+            torch.arange(central_index - patch_diameter // 2, central_index + 1 + patch_diameter // 2, 1),
+            (patch_diameter,))
+        spatial_ys = torch.repeat_interleave(
+            torch.arange(central_index - patch_diameter // 2, central_index + 1 + patch_diameter // 2, 1),
+            patch_diameter)
+        x = x[:, spatial_xs, spatial_ys, :].view(batch_size, patch_diameter, patch_diameter, -1)
+    else:  # Np array
+        spatial_xs = np.tile(
+            np.arange(central_index - patch_diameter // 2, central_index + 1 + patch_diameter // 2, 1),
+            patch_diameter)
+        spatial_ys = np.repeat(
+            np.arange(central_index - patch_diameter // 2, central_index + 1 + patch_diameter // 2, 1),
+            patch_diameter)
+        x = x[:, spatial_xs, spatial_ys, :].reshape(batch_size, patch_diameter, patch_diameter, -1)
+
+    return x
