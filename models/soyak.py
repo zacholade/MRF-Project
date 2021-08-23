@@ -23,7 +23,7 @@ class Soyak(nn.Module):
         batch_size = x.shape[0]
 
         # Pass through attention module. Calculate scales to pick top 32 channels.
-        x, scale = self.cbam(x, return_scale=True)
+        _, scale = self.cbam(x, return_scale=True)
         scale = scale.contiguous().view(batch_size * self.patch_size * self.patch_size, -1)
 
         # Select the top 32 channels.
