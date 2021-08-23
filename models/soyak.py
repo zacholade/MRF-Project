@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from models.modules.cbam import CBAM
+from models.modules.cbam import CBAM, CBAMChannelReduction
 from models.modules.util import batched_index_select
 
 
@@ -12,6 +12,7 @@ class Soyak(nn.Module):
     def __init__(self, patch_size: int, seq_len: int):
         super().__init__()
         self.patch_size = patch_size
+        self.cbam_channel_reduction = CBAMChannelReduction(seq_len, reduction=32)
         self.cbam = CBAM(seq_len, reduction_ratio=1, no_spatial=True)
         self.conv1 = nn.Conv2d(32, 32, 3, padding='same')
         self.conv2 = nn.Conv2d(32, 64, 3, padding='same')
@@ -23,14 +24,7 @@ class Soyak(nn.Module):
     def forward(self, x):
         batch_size = x.shape[0]
 
-        # Pass through attention module. Calculate scales to pick top 32 channels.
-        _, scale = self.cbam(x, return_scale=True)
-        scale = scale.contiguous().view(batch_size * self.patch_size * self.patch_size, -1)
-
-        # Select the top 32 channels.
-        top_n_indices = torch.topk(scale, 32, dim=1).indices
-        x = x.contiguous().view(batch_size * self.patch_size * self.patch_size, -1)
-        x = batched_index_select(x, 1, top_n_indices).view(batch_size, 32, self.patch_size, self.patch_size)
+        x, scale = self.cbam_channel_reduction(x)
 
         # Pass through conv layers.
         x = self.relu(self.conv1(x))
@@ -40,6 +34,6 @@ class Soyak(nn.Module):
 
         # Classification. Output dim is 2 for t1 t2.
         x = self.dense(x.transpose(1, 3))
-        return x
+        return x, scale
 
 

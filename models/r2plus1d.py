@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.modules.utils import _triple
 
-from .modules.cbam import CBAM
+from .modules.cbam import CBAM, CBAMChannelReduction
 from .modules.factorised_spatiotemporal_conv import FactorisedSpatioTemporalConv
 from .modules.non_local_block import NonLocalBlock1D, NonLocalBlock2D, NonLocalBlock3D, NonLocalAttention1DFor3D
 from .modules.util import batched_index_select
@@ -104,7 +104,7 @@ class R2Plus1D(nn.Module):
         if dimensionality_reduction_level == 0:
             self.dimensionality_reduction = None
         elif dimensionality_reduction_level == 1:
-            self.dimensionality_reduction = CBAM(seq_len, reduction_ratio=1, no_spatial=True)
+            self.dimensionality_reduction = CBAMChannelReduction(seq_len, reduction=128)
         else:  # 2
             raise NotImplementedError('todo')
 
@@ -136,19 +136,14 @@ class R2Plus1D(nn.Module):
     def forward(self, x):
         batch_size = x.size(0)
 
+        # Channel reduction if using it.
         if self.use_dimensionality_reduction:
-            if self.dimensionality_reduction_level == DimensionalityReduction.CBAM:
-                print(x.shape)
-                _, scale = self.dimensionality_reduction(x, return_scale=True)
-                scale = scale.contiguous().view(batch_size * self.patch_size * self.patch_size, -1)
-                # Select the top 32 channels.
-                top_n_indices = torch.topk(scale, 128, dim=1).indices
-                x = x.contiguous().view(batch_size * self.patch_size * self.patch_size, -1)
-                x = batched_index_select(x, 1, top_n_indices).view(batch_size, 128, self.patch_size, self.patch_size)
-            elif self.dimensionality_reduction_level == DimensionalityReduction.LINEAR:
-                raise NotImplementedError('todo')
+            x, scale = self.dimensionality_reduction(x)
 
+        # Move temporal dimension that is currently a channel to its own dimension
         x = x.unsqueeze(1)
+
+        # Apply non local between convs if using it
         if self.use_non_local:
             x = self.conv1(x)
             x = self.conv2(x)
@@ -165,6 +160,9 @@ class R2Plus1D(nn.Module):
             x = self.conv4(x)
             x = self.conv5(x)
 
+        # Space time average pooling. Returns shape of (Batch x 128 (num channels))
         x = self.pool(x).view(-1, 128)
+
+        # Linear layer for classification of the central pixel.
         x = self.linear(x)
         return x

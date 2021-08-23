@@ -3,6 +3,8 @@ import math
 import torch.nn as nn
 import torch.nn.functional as F
 
+from models.modules.util import batched_index_select
+
 
 class BasicConv(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0,
@@ -110,3 +112,27 @@ class CBAM(nn.Module):
         if return_scale:
             return x_out, scale
         return x_out
+
+
+class CBAMChannelReduction(nn.Module):
+    """
+    Uses channel weights to pick top n elements according to reduction parameter.
+    """
+    def __init__(self, seq_len: int, reduction: int):
+        super().__init__()
+        self.cbam = CBAM(seq_len, reduction_ratio=1, no_spatial=True)
+        self.reduction = reduction
+
+    def forward(self, x):
+        batch_size = x.size(0)
+        patch_size = x.size(2)
+
+        # Pass through attention module. Calculate scales to pick top 32 channels.
+        _, scale = self.cbam(x, return_scale=True)
+        _scale = scale.contiguous().view(batch_size * patch_size * patch_size, -1)
+
+        # Select the top 32 channels.
+        top_n_indices = torch.topk(_scale, self.reduction, dim=1).indices
+        x = x.contiguous().view(batch_size * patch_size * patch_size, -1)
+        x = batched_index_select(x, 1, top_n_indices).view(batch_size, self.reduction, patch_size, patch_size)
+        return x, scale
