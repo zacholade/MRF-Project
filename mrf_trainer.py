@@ -272,7 +272,7 @@ class TrainingAlgorithm(LoggingMixin):
                                                loss.detach().cpu().item(),
                                                data_type="train")
 
-                    if current_iteration % max((total_iterations // 1000), 1) == 0 or current_iteration == 2:
+                    if current_iteration % max((total_iterations // 100), 1) == 0 or current_iteration == 2:
                         self.logger.info(f"Epoch: {epoch}, Training iteration: {current_iteration} / "
                                          f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                          f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
@@ -360,6 +360,7 @@ def get_network(network: str, config):
     elif network == 'r2plus1d':
         using_spatial = True
         model = R2Plus1D(patch_size=config.patch_size, seq_len=config.seq_len, factorise=config.factorise,
+                         dimensionality_reduction_level=config.dimensionality_reduction_level,
                          non_local_level=config.non_local_level)
     elif network == 'r2plus1d_cbam':
         using_spatial = True

@@ -95,6 +95,10 @@ class Configuration:
         return self._config.getboolean(f"{self.network_name}Hyperparameters", "modern")
 
     @property
+    def dimensionality_reduction_level(self) -> int:
+        return self._config.getint(f"{self.network_name}Hyperparameters", "dimensionality_reduction_level")
+
+    @property
     def limit_iterations(self) -> int:
         if not self.debug:
             return -1
