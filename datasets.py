@@ -102,7 +102,7 @@ class PatchwiseDataset(PixelwiseDataset):
 
         padding_width_top_left = padding_width_bottom_right = patch_size // 2  # padding width on each side. In-case patch goes out of frame of the image.
         if patch_return_size > 1:
-            padding_width_bottom_right += (230 % patch_size)
+            padding_width_bottom_right += (230 % patch_size) + 1
 
         self.padding_width = padding_width_top_left
         self.labels = np.pad(self.labels,
