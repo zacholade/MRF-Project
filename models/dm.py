@@ -1,5 +1,5 @@
 import h5py
-import numpy
+import numpy as np
 import torch
 from torch import nn
 
@@ -13,6 +13,9 @@ class DM(nn.Module):
         dm_file = h5py.File("Data/dict.mat", 'r')
         self.lut = torch.Tensor(np.array(dm_file.get('lut'))).cuda()
         self.dic = torch.FloatTensor(np.array(dm_file.get('dict'))).cuda()
+
+        # Dict is already normalised. If using fingerprints less than 1000 timesteps,
+        # unnormalise, shorten and then renormalise so energy = 1.
         if seq_len != 1000:
             dn = torch.Tensor(np.array(dm_file.get('dict_norm'))).cuda()
             self.dic *= dn

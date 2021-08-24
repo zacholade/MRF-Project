@@ -316,6 +316,9 @@ class TrainingAlgorithm(LoggingMixin):
 
 
 def get_network(network: str, config):
+    """
+    returns the model given by the name. Passes config info to the network also.
+    """
     using_spatial = False  # If true input is fed as patches.
     using_attention = False
     patch_return_size = 1
@@ -461,7 +464,7 @@ if __name__ == "__main__":
     parser.add_argument('-cpu', action='store_true', default=False)  # Force to use cpu.
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-file_limit', default=-1, type=int)  # Limit number of scans to open at one time.
-    parser.add_argument('-resume_dir', default=None, type=str, required=False)
+    parser.add_argument('-resume_dir', default=None, type=str, required=False)  # If resuming trainig rather than restarting from scratch.
     parser.add_argument('-resume_model', type=int, required=False, default=None)  # Experimental resuming model training.
 
     args = parser.parse_args()

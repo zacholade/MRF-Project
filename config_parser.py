@@ -7,6 +7,9 @@ config.read("config.ini")
 
 
 class Configuration:
+    """
+    A class to effectively parse the config.ini file.
+    """
     def __init__(self, network_name: str, filename: str, debug: bool):
         self.network_name = network_name
         self._config = configparser.ConfigParser(inline_comment_prefixes='#')

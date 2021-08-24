@@ -144,6 +144,7 @@ class R2Plus1D(nn.Module):
         x = x.unsqueeze(1)
 
         # Apply non local between convs if using it
+        # Last 3 conv layers do temporal downsampling with very final also doing spatial.
         if self.use_non_local:
             x = self.conv1(x)
             x = self.conv2(x)

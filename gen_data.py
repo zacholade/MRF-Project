@@ -1,3 +1,8 @@
+"""
+Generates the data used for training models.
+Uses subprocess daemons.
+"""
+
 from __future__ import annotations
 
 import multiprocessing
@@ -26,7 +31,6 @@ default_logging_format = ''.join([
 ])
 
 logging.basicConfig(format=default_logging_format)
-
 
 
 def convert_to_compact_array(data, label):

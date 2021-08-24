@@ -91,7 +91,7 @@ class SpatialGate(nn.Module):
     def forward(self, x):
         x_compress = self.compress(x)
         x_out = self.spatial(x_compress)
-        scale = F.sigmoid(x_out) # broadcasting
+        scale = F.sigmoid(x_out)  # broadcasting
         return x * scale
 
 
@@ -117,6 +117,7 @@ class CBAM(nn.Module):
 class CBAMChannelReduction(nn.Module):
     """
     Uses channel weights to pick top n elements according to reduction parameter.
+    Doesn't apply attention to X.
     """
     def __init__(self, seq_len: int, reduction: int):
         super().__init__()
