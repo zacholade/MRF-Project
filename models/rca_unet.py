@@ -56,13 +56,23 @@ class FeatureExtraction(nn.Module):
     def __init__(self, in_features: int, out_features: int):
         super().__init__()
         interm_features = max(in_features // 2, out_features)
+        self.out_features = out_features
         self.layers = nn.Sequential(
             nn.Linear(in_features=in_features, out_features=interm_features),
-            nn.Linear(in_features=interm_features, out_features=out_features)
+            nn.BatchNorm1d(interm_features),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_features=interm_features, out_features=out_features),
+            nn.BatchNorm1d(out_features),
+            nn.ReLU(inplace=True),
         )
 
     def forward(self, x):
-        return self.layers(x).transpose(1, 3)
+        batch_size = x.size(0)
+        shape = x.shape
+        x = x.contiguous().view(batch_size * x.size(1) * x.size(2), -1)
+        x = self.layers(x)
+        x = x.view(batch_size, self.out_features, shape[1], shape[2])
+        return x
 
 
 class SubRCAUNet(nn.Module):
@@ -89,7 +99,7 @@ class SubRCAUNet(nn.Module):
         x = self.up2(x, x2)
         x = self.up3(x, x1)
         x = self.out_conv(x)
-        return x#[:, :, self.patch_size // 2, self.patch_size // 2]
+        return x
 
 
 class RCAUNet(nn.Module):
