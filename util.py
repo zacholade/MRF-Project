@@ -151,7 +151,6 @@ def load_all_data_files(seq_len: int = 1000, file_limit: int = -1, compressed: b
         num_test = 10
         num_train = 35
 
-
     if num_test == 0 and num_train > 1:
         num_test += 1
         num_train -= 1
