@@ -1,11 +1,32 @@
-import torch
 import torch.nn as nn
 from torch.nn.modules.utils import _triple
 
-from .modules.cbam import CBAM, CBAMChannelReduction
+from .modules.cbam import CBAMChannelReduction
 from .modules.factorised_spatiotemporal_conv import FactorisedSpatioTemporalConv
-from .modules.non_local_block import NonLocalBlock1D, NonLocalBlock2D, NonLocalBlock3D, NonLocalAttention1DFor3D
-from .modules.util import batched_index_select
+from .modules.non_local_block import NonLocalBlock3D, NonLocalAttention1DFor3D
+
+
+class FeatureExtraction(nn.Module):
+    def __init__(self, in_features: int, out_features: int):
+        super().__init__()
+        interm_features = max(in_features // 2, out_features)
+        self.out_features = out_features
+        self.layers = nn.Sequential(
+            nn.Linear(in_features=in_features, out_features=interm_features),
+            nn.BatchNorm1d(interm_features),
+            nn.ReLU(inplace=True),
+            nn.Linear(in_features=interm_features, out_features=out_features),
+            nn.BatchNorm1d(out_features),
+            nn.ReLU(inplace=True),
+        )
+
+    def forward(self, x):
+        batch_size = x.size(0)
+        shape = x.shape
+        x = x.contiguous().view(batch_size * x.size(2) * x.size(3), -1)
+        x = self.layers(x)
+        x = x.view(batch_size, self.out_features, shape[2], shape[3])
+        return x, None
 
 
 class SpatioTemporalResLayer(nn.Module):
@@ -104,18 +125,24 @@ class R2Plus1D(nn.Module):
         if dimensionality_reduction_level == 0:
             self.dimensionality_reduction = None
         elif dimensionality_reduction_level == 1:
-            self.dimensionality_reduction = CBAMChannelReduction(seq_len, reduction=128)
+            self.dimensionality_reduction = CBAMChannelReduction(seq_len, reduction=64)
         else:  # 2
-            raise NotImplementedError('todo')
+            self.dimensionality_reduction = FeatureExtraction(seq_len, 64)
 
-        self.conv1 = nn.Sequential(
-            conv_block(in_channels=1, out_channels=16,
-                       kernel_size=(7, 3, 3), stride=(2, 1, 1), padding=(3, 1, 1)),
-            nn.ReLU(inplace=True)
-        )
+        # If we are using dimensionality reduction we dont need to stride first conv to
+        # downsample the temporal input.
+        conv1_stride = (1, 1, 1) if self.dimensionality_reduction_level > 0 else (2, 1, 1)
 
+        self.conv1 = nn.Sequential(conv_block(in_channels=1, out_channels=16,
+                                              kernel_size=(7, 3, 3), stride=conv1_stride, padding=(3, 1, 1)),
+                                   nn.ReLU(inplace=True))
+
+        if self.use_non_local and self.dimensionality_reduction_level > 0:
+            self.nloc_1 = non_local(32, compression=1)
         # output of conv2 is same size as of conv1, no downsampling needed. kernel_size 3x3x3
         self.conv2 = SpatioTemporalResLayer(16, 16, (3, 3, 3), (3, 3, 3), block=conv_block)
+        if self.use_non_local and self.dimensionality_reduction_level > 0:
+            self.nloc_2 = non_local(32, compression=1)
         # each of the final three layers doubles num_channels, while performing downsampling
         # inside the first block
         self.conv3 = SpatioTemporalResLayer(16, 32, (3, 3, 3), (3, 3, 3), temporal_compress=True, block=conv_block)
@@ -147,7 +174,11 @@ class R2Plus1D(nn.Module):
         # Last 3 conv layers do temporal downsampling with very final also doing spatial.
         if self.use_non_local:
             x = self.conv1(x)
+            if self.dimensionality_reduction_level > 0:
+                x = self.nloc_1(x)
             x = self.conv2(x)
+            if self.dimensionality_reduction_level > 0:
+                x = self.nloc_2(x)
             x = self.conv3(x)
             x = self.nloc_3(x)
             x = self.conv4(x)
