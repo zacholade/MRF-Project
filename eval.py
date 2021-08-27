@@ -134,12 +134,26 @@ def log_in_vivo_sections(predicted, labels, data_logger):
         data_logger.log_error(predicted_cbsf_masked, true_cbsf_masked, None, "cbsf")
 
 
+def remove_zero_labels(predicted, labels, pos=None):
+    """
+    Some models return a full patch prediction (soyak, rca-unet).
+    In these cases, some labels will contain air. Remove these from predicted and labels
+    so we dont back prop on them as they are later masked
+    and so that we dont result in infinity values for MAPE due to label being zero.
+    """
+    mask = labels[:, 0] != 0
+    if pos is not None:
+        return predicted[mask], labels[mask], pos[mask]
+    return predicted[mask], labels[mask]
+
+
 def main(args, config):
+    patch_return_size = 1
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if args.network.lower() == "dm":
         model, using_spatial, using_attention = DM(config.seq_len), False, False
     else:
-        model, using_spatial, using_attention = get_network(args.network, config)
+        model, using_spatial, using_attention, patch_return_size = get_network(args.network, config)
         if args.full_model:
             model = torch.load(f"FinalModels/{args.path}")
         else:
@@ -155,18 +169,18 @@ def main(args, config):
         complex_path = f"snr-{args.snr}_cs-{args.cs}"
         seq_len = 200
         data_transforms = transforms.Compose(
-            [Unnormalise(), ApplyPD(), Normalise(), OnlyT1T2()])
+            [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
     else:
         complex_path = None
         seq_len = config.seq_len
         data_transforms = transforms.Compose(
-            [Unnormalise(), ApplyPD(), Normalise(), OnlyT1T2()])
+            [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
     if using_spatial:
         _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=seq_len,
                                                                         compressed=not using_spatial,
                                                                         complex_path=complex_path)
-        validation_dataset = ScanPatchwiseDataset(args.chunks, model.patch_size, _pos, _data,
+        validation_dataset = ScanPatchwiseDataset(args.chunks, model.patch_size, _pos, patch_return_size, _data,
                                                   _labels, _file_lens, _file_names, transform=data_transforms)
     else:
         _data, _labels, _file_lens, _file_names = load_eval_files(seq_len=seq_len,
@@ -210,7 +224,14 @@ def main(args, config):
             attention = predicted[1]
             predicted = predicted[0]
 
+        if patch_return_size > 1:
+            predicted = get_inner_patch(predicted, patch_return_size, use_torch=True).view(-1, 2)
+            predicted, labels, pos = remove_zero_labels(predicted, labels, pos)
+
+
+
         if attention is not None:
+            pass
             # attention = attention.cpu().detach().numpy()
             # data = data.detach().cpu().numpy()
             # vmin = np.min(attention[10][0:299:10].flatten())
@@ -219,8 +240,8 @@ def main(args, config):
             # print(attention.shape)
             # plt.matshow(attention, vmin=vmin, vmax=vmax, cmap='hot')
             # plt.show()
-            plot_1d_nlocal_attention2(attention, data.detach().cpu().numpy())
-            plot_1d_nlocal_attention(attention, data)
+            # plot_1d_nlocal_attention2(attention, data.detach().cpu().numpy())
+            # plot_1d_nlocal_attention(attention, data)
 
         loss = loss_func(predicted, labels)
 
