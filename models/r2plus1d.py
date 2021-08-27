@@ -138,11 +138,11 @@ class R2Plus1D(nn.Module):
                                    nn.ReLU(inplace=True))
 
         if self.use_non_local and self.dimensionality_reduction_level > 0:
-            self.nloc_1 = non_local(32, compression=1)
+            self.nloc_1 = non_local(16, compression=1)
         # output of conv2 is same size as of conv1, no downsampling needed. kernel_size 3x3x3
         self.conv2 = SpatioTemporalResLayer(16, 16, (3, 3, 3), (3, 3, 3), block=conv_block)
         if self.use_non_local and self.dimensionality_reduction_level > 0:
-            self.nloc_2 = non_local(32, compression=1)
+            self.nloc_2 = non_local(16, compression=1)
         # each of the final three layers doubles num_channels, while performing downsampling
         # inside the first block
         self.conv3 = SpatioTemporalResLayer(16, 32, (3, 3, 3), (3, 3, 3), temporal_compress=True, block=conv_block)
