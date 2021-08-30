@@ -6,6 +6,18 @@ from .modules.factorised_spatiotemporal_conv import FactorisedSpatioTemporalConv
 from .modules.non_local_block import NonLocalBlock3D, NonLocalAttention1DFor3D
 
 
+class NonLocalLevel:
+    NONE = 0
+    TEMPORAL = 1
+    SPATIOTEMPORAL = 2
+
+
+class DimensionalityReduction:
+    NONE = 0
+    CBAM = 1
+    LINEAR = 2
+
+
 class FeatureExtraction(nn.Module):
     def __init__(self, in_features: int, out_features: int):
         super().__init__()
@@ -30,15 +42,7 @@ class FeatureExtraction(nn.Module):
 
 
 class SpatioTemporalResLayer(nn.Module):
-    r"""Single block for the ResNet network. Uses SpatioTemporalConv in
-        the standard ResNet block layout (conv->batchnorm->ReLU->conv->batchnorm->sum->ReLU)
-        Args:
-            in_channels (int): Number of channels in the input tensor.
-            out_channels (int): Number of channels in the output produced by the block.
-            kernel_size (int or tuple): Size of the convolving kernels.
-            compress (bool, optional): If ``True``, the output size is to be smaller than the input. Default: ``False``
-        """
-
+    """Code which has been adapted from: https://github.com/irhum/R2Plus1D-PyTorch"""
     def __init__(self, in_channels, out_channels, conv1_kernel_size, conv2_kernel_size,
                  temporal_compress=False, spatial_compress=False,
                  block=FactorisedSpatioTemporalConv):
@@ -88,24 +92,16 @@ class SpatioTemporalResLayer(nn.Module):
         return self.outrelu(x + y)
 
 
-class NonLocalLevel:
-    NONE = 0
-    TEMPORAL = 1
-    SPATIOTEMPORAL = 2
-
-
-class DimensionalityReduction:
-    NONE = 0
-    CBAM = 1
-    LINEAR = 2
-
-
 class R2Plus1D(nn.Module):
     def __init__(self, patch_size: int, seq_len: int, factorise: bool = True,
                  dimensionality_reduction_level: int = 0, non_local_level: int = 0):
         """
         factorise: Whether to factorise spatial and temporal dimensions.
-        If false, the resulting model will be a standard residual 3d CNN.
+            If false, the resulting model will be a standard residual 3d CNN.
+        dimensionality_reduction_level: Applies dimensionality reduction
+            according to the value provided.
+        non_local_level: Integrates non-local attention into the model. If dimensionality reduction
+            takes place, additional non-local blocks are added after conv 1 and 2.
         """
         super().__init__()
         self.patch_size = patch_size

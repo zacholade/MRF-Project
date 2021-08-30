@@ -1,8 +1,6 @@
-import torch
 from torch import nn
 
 from models.modules.cbam import CBAM, CBAMChannelReduction
-from models.modules.util import batched_index_select
 
 
 class Soyak(nn.Module):
@@ -13,7 +11,7 @@ class Soyak(nn.Module):
         super().__init__()
         self.patch_size = patch_size
         self.cbam_channel_reduction = CBAMChannelReduction(seq_len, reduction=32)
-        self.cbam = CBAM(seq_len, reduction_ratio=1, no_spatial=True)
+        self.cbam = CBAM(seq_len, reduction_ratio=1)
         self.conv1 = nn.Conv2d(32, 32, 3, padding='same')
         self.conv2 = nn.Conv2d(32, 64, 3, padding='same')
         self.conv3 = nn.Conv2d(64, 128, 3, padding='same')

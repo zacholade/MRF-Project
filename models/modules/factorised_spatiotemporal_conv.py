@@ -5,6 +5,7 @@ from torch.nn.modules.utils import _triple
 
 
 class FactorisedSpatioTemporalConv(nn.Module):
+    """Code which has been adapted from: https://github.com/irhum/R2Plus1D-PyTorch"""
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0):
         super().__init__()
 

@@ -5,6 +5,7 @@ from torch import nn
 
 
 class Balsiger(nn.Module):
+    """https://link.springer.com/chapter/10.1007/978-3-030-00129-2_5"""
     def __init__(self, seq_len: int = 1000, patch_size: int = 5):
         super().__init__()
         self.conv1x1 = self.conv_block(in_channels=seq_len, out_channels=200,
@@ -37,6 +38,7 @@ class Balsiger(nn.Module):
 
     def forward(self, x):
         x = self.conv1x1(x)
+        # Balsiger indexed the central 3 pixels.
         conv3x3 = self.conv3x3(x[:, :, 1:4, 1:4])
         conv5x5 = self.conv5x5(x)
         concat = torch.cat((conv3x3, conv5x5), 1)

@@ -42,11 +42,11 @@ class Upsample(nn.Module):
     def forward(self, x, y):
         x = self.upsample(x)
 
-        diffY = y.size()[2] - x.size()[2]
-        diffX = y.size()[3] - x.size()[3]
+        y_difference = y.size()[2] - x.size()[2]
+        x_difference = y.size()[3] - x.size()[3]
 
-        x = F.pad(x, [diffX // 2, diffX - diffX // 2,
-                      diffY // 2, diffY - diffY // 2])
+        x = F.pad(x, [x_difference // 2, x_difference - x_difference // 2,
+                      y_difference // 2, y_difference - y_difference // 2])
 
         x = torch.cat((x, y), dim=1)
         return self.conv(x)

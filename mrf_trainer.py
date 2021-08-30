@@ -462,7 +462,7 @@ if __name__ == "__main__":
     parser.add_argument('-noplot', '-no_plot', dest='no_plot', action='store_true', default=False)  # Doesn't plot brain scans.
     parser.add_argument('-notes', '-note', dest='notes', type=str)  # Add a note. Used in file dir name.
     parser.add_argument('-cpu', action='store_true', default=False)  # Force to use cpu.
-    parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
+    parser.add_argument('-chunks', default=100, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-file_limit', default=-1, type=int)  # Limit number of scans to open at one time.
     parser.add_argument('-resume_dir', default=None, type=str, required=False)  # If resuming trainig rather than restarting from scratch.
     parser.add_argument('-resume_model', type=int, required=False, default=None)  # Experimental resuming model training.
