@@ -214,7 +214,7 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     actual_t1_map[x, y] = actual_t1
     actual_t2_map[x, y] = actual_t2
 
-    fig, ax = plt.subplots(2, 4, figsize=(12, 7))
+    fig, ax = plt.subplots(2, 4, figsize=(48, 28))
     fig.subplots_adjust(wspace=0.3)
 
     cmap = None
@@ -274,7 +274,6 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     divider = make_axes_locatable(ax[1][3])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
-
     plt.savefig(f"{save_dir}/{subj_name}_epoch-{epoch}.svg")
 
     # Clear the current axes.
@@ -285,6 +284,7 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     plt.close('all')
     plt.close(fig)
     gc.collect()
+
 
 
 def plot_fp(fingerprint, epoch: int = 0, save_dir=None):
