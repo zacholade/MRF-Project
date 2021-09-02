@@ -15,6 +15,7 @@ from datasets import *
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
+import matplotlib.pyplot as plt
 from transforms import ApplyPD, OnlyT1T2, NoiseTransform, Normalise, Unnormalise, SNRTransform
 from util import load_eval_files, plot_maps, plot
 import h5py
@@ -47,12 +48,13 @@ def main(args, config):
     if args.network.lower() == "dm":
         model, using_spatial, using_attention = DM(config.seq_len), False, False
     else:
-        model, using_spatial, using_attention = get_network(args.network, config)
+        model, using_spatial, using_attention, patch_return_size = get_network(args.network, config)
         if args.full_model:
-            model = torch.load(args.path)
+            model = torch.load(f"FinalModels/{args.path}")
         else:
-            checkpoint = torch.load(args.path)
+            checkpoint = torch.load(f"FinalModels/{args.path}")
             model.load_state_dict(checkpoint['model_state_dict'])
+
 
     model.to(device)
     model.eval()
@@ -88,15 +90,15 @@ def main(args, config):
         map_powers[file_name] = map_power
 
 
-    monte_carlo_iterations = 100
-    for snr in (50, 40, 30, 20, 10):
+    monte_carlo_iterations = 25
+    for snr in (4, 8, 16, 32, 64):
         for i in range(monte_carlo_iterations):  # 100 simulations per noise.
-
+            print(f"{snr}:{i}")
             data_transforms = transforms.Compose(
-                [Unnormalise(), SNRTransform(snr, map_powers), Normalise(), OnlyT1T2()])
+                [Unnormalise(), SNRTransform(snr), Normalise(), OnlyT1T2()])
 
             if using_spatial:
-                validation_dataset = ScanPatchwiseDataset(args.chunks, model.patch_size, _pos, _data,
+                validation_dataset = ScanPatchwiseDataset(args.chunks, model.patch_size, _pos, patch_return_size, _data,
                                                           _labels, _file_lens, _file_names, transform=data_transforms)
             else:
                 validation_dataset = ScanwiseDataset(args.chunks, _data, _labels, _file_lens,
@@ -120,7 +122,7 @@ def main(args, config):
                 print(f"Scan: {(current_iteration // args.chunks) + 1} / "
                       f"{len(data_loader) // args.chunks}. "
                       f"Chunk: {((current_chunk - 1) % args.chunks) + 1} / "
-                      f"{args.chunks}")
+                      f"{args.chunks}. SNR: {snr}")
                 data, labels = data.to(device), labels.to(device)
                 predicted = model.forward(data)
                 if isinstance(predicted, tuple):
@@ -153,14 +155,14 @@ def main(args, config):
                          chunk_pos.numpy().astype(int),
                          0,
                          f"{export_dir}/Plots/{file_name}",
-                         file_name)
+                         f"{file_name}_snr-{snr}")
 
                     chunk_loss = 0
                     chunk_predicted = None
                     chunk_labels = None
                     chunk_pos = None
 
-        data_logger.on_epoch_end(snr)
+            data_logger.on_epoch_end(snr)
 
 
 if __name__ == "__main__":

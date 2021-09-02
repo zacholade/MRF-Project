@@ -121,6 +121,6 @@ class SNRTransform(BaseTransform):
         noise = np.random.randn(*data.shape) * np.sqrt(noise_power)
 
         # Add noise to signal
-        x = data + noise
+        data = data + noise
 
         return data, label, pos, file_name

@@ -19,7 +19,7 @@ def brain_dict_true(eng,
                     rf_pulses: List[float] = None):
     if rf_pulses is None:
         with open("../RFpulses.npy", "rb") as f:
-            rf_pulses = list(np.load(f))[:1000]
+            rf_pulses = list(np.load(f))[:300]
 
     if pd == 0.:
         # If t1 and t2 are both 0 then we just return an empty fingerprint.

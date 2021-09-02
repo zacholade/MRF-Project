@@ -1,13 +1,17 @@
 import gc
 import logging
+import math
 import os
 from multiprocessing import Process
 
 import git
+import matplotlib
+import numpy
 import numpy as np
 import torch
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, cm as cm, pylab as pl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 
 logger = logging.getLogger("mrf")
@@ -356,3 +360,71 @@ def get_inner_patch(x, patch_diameter: int, use_torch: bool = False):
         x = x[:, spatial_xs, spatial_ys, :].reshape(batch_size, patch_diameter, patch_diameter, -1)
 
     return x
+
+
+def plot_1d_nlocal_attention(attention, data):
+    attention = attention.detach().cpu().numpy()
+    batch_index = 10
+    channel_len = attention.shape[1]
+    assert attention.shape[1] == attention.shape[2]
+    attention = attention[batch_index]
+    attention -= (1 / channel_len)  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
+    plt.tight_layout()
+    fig, ax = plt.subplots(1, 2, figsize=(24, 14))
+    # with open("out_csv.csv", 'a', newline='') as file:
+    my_cmap = cm.plasma
+    colors = pl.cm.plasma(np.linspace(0, 1, channel_len))
+    sm = plt.cm.ScalarMappable(cmap=my_cmap, norm=plt.Normalize(vmin=0, vmax=channel_len))
+    cbar = plt.colorbar(sm)
+    cbar.ax.tick_params(labelsize=15)
+    cbar.ax.set_ylabel("Channel Number", labelpad=15, family='Arial', fontsize=15)
+    ax[1].set_ylabel("Normalised Attention Scores (a.u.)", family='Arial', fontsize=15)
+    ax[1].set_xlabel("Channel Number", family='Arial', fontsize=15)
+    plt.margins(0)
+    ax[0].grid()
+    ax[1].grid(True, which="both", ls="-", color='0.65')
+    ax[1].spines['right'].set_linewidth(0.5)
+    ax[1].spines['top'].set_linewidth(0.5)
+    ax[1].spines['right'].set_color('grey')
+    ax[1].spines['top'].set_color('grey')
+    # ax[1].set_ylim([np.floor(np.min(attention[0:299:10].flatten()) * 100) / 100, np.ceil(np.max(attention[0:299:10].flatten()) * 00) / 200])
+    # ax[1].set_ylim([10**-4, 10**-2])
+    # ax[1].set_ylim([-0.004, 0.006])  # For song.
+    # ax[1].set_ylim([-0.004, 0.006])
+    ax[1].set_xlim([0, channel_len])
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+
+    ax[0].tick_params(axis='both', which='major', labelsize=12)
+    ax[1].tick_params(axis='both', which='major', labelsize=12)
+    # ax[1].set_yticks([10**-4, 10**-3, 10**-2])
+    # locmin = matplotlib.ticker.LogLocator(base=10.0, subs=(0.2,0.4,0.6,0.8), numticks=12)
+    # ax[1].yaxis.set_minor_locator(locmin)
+    # ax[1].yaxis.set_minor_formatter(matplotlib.ticker.NullFormatter())
+
+    for i, attention_line in enumerate(attention):
+        if i % 10 == 0:
+            ax[1].plot(attention_line, color=colors[i], linewidth=1)
+
+    if len(data.shape) > 3:
+        data = data[:, :, 1, 1]
+    im = ax[0].plot(np.abs(data[batch_index, :].detach().cpu().numpy()))
+    ax[0].set_ylabel("Normalised Fingerprint (a.u.)", family='Arial', fontsize=15)
+    ax[0].set_xlabel("Timestep (or channel)", family='Arial', fontsize=15)
+    nearest_05 = math.ceil(np.max(np.abs(data[batch_index, :].detach().cpu().numpy())) * 20) / 20  # Round to nearest 0.005
+    ax[0].set_ylim([0, nearest_05])
+    ax[0].set_xlim([0, 300])
+
+    fig, ax = plt.subplots(1, 1, figsize=(24, 14))
+    im = ax.matshow(attention[channel_len:0:-1, 0:channel_len:1], cmap=my_cmap, extent=[1, channel_len, 1, channel_len])
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes('right', size='5%', pad=0.05)
+    cbar = fig.colorbar(im, cax=cax, shrink=0.8)
+    ax.yaxis.set_ticks_position('left')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.set_ylabel("Channel Number", family='Arial', fontsize=15)
+    ax.set_xlabel("Channel Number", family='Arial', fontsize=15)
+    # ax.set_xticks([50, 100, 150, 200, 250, 300])
+    # ax.set_yticks([50, 100, 150, 200, 250, 300])
+    cbar.ax.set_ylabel("Normalised Attention Scores (a.u.)", labelpad=15, family='Arial', fontsize=15)
+    plt.show()

@@ -18,20 +18,18 @@ from datasets import *
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-import matplotlib.pylab as pl
-from matplotlib.ticker import MaxNLocator
-
-from transforms import ApplyPD, OnlyT1T2, NoiseTransform, Normalise, Unnormalise
-from util import load_eval_files, plot_maps, plot
+from transforms import ApplyPD, OnlyT1T2, Normalise, Unnormalise
+from util import load_eval_files, plot_maps, plot, plot_1d_nlocal_attention
 
 
 def plot_1d_nlocal_attention2(attention, data):
+    print(data.shape)
+    print(attention.shape)
     attention = attention.detach().cpu().numpy()
     batch_index = 10
     attention = attention[batch_index]
     data = data[batch_index]
-    attention -= (1 / 300)  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
+    attention -= (1 / attention.shape[1])  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
     plt.tight_layout()
     fig, ax = plt.subplots(6, 1, figsize=(12, 7))
 
@@ -56,7 +54,7 @@ def plot_1d_nlocal_attention2(attention, data):
         ax[axis].spines['bottom'].set_position('center')
         # ax[axis].set_xticklabels(ax[axis].get_xticks(), rotation=90)
 
-
+    plt.show()
     # Data plot
     fig_data, ax_data = plt.subplots(1, 1, figsize=(12, 7))
     ax_data.set_ylabel("Normalised fingeprint (a.u.)", family='Arial', fontsize=15)
@@ -67,48 +65,13 @@ def plot_1d_nlocal_attention2(attention, data):
     ax_data.spines['top'].set_linewidth(0.5)
     ax_data.spines['right'].set_color('grey')
     ax_data.spines['top'].set_color('grey')
-    nearest_005 = math.ceil(np.max(np.abs(data)) * 20) / 20  # Round to nearest 0.005
+    nearest_005 = math.ceil(np.max(np.abs(data)) * 20) / 20  # Round to nearest 0.05
     ax_data.set_ylim([0, nearest_005])
     ax_data.set_xlim([0, 300])
     plt.xticks(fontsize=15)
     plt.yticks(fontsize=15)
     ax_data.plot(np.abs(data))
 
-    plt.show()
-
-
-def plot_1d_nlocal_attention(attention, data):
-    attention = attention.detach().cpu().numpy()
-    batch_index = 10
-    attention = attention[batch_index]
-    attention -= (1 / 300)  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
-    plt.tight_layout()
-    fig, ax = plt.subplots(1, 2, figsize=(12, 7))
-    # with open("out_csv.csv", 'a', newline='') as file:
-    my_cmap = cm.viridis
-    colors = pl.cm.viridis(np.linspace(0, 1, data.shape[1]))
-    sm = plt.cm.ScalarMappable(cmap=my_cmap, norm=plt.Normalize(vmin=0, vmax=300))
-    cbar = plt.colorbar(sm)
-    cbar.ax.tick_params(labelsize=15)
-    cbar.ax.set_ylabel("Excitation number", labelpad=15, family='Arial', fontsize=15)
-    ax[1].set_ylabel("Attention Score (a.u.)", family='Arial', fontsize=15)
-    ax[1].set_xlabel("Per timestep attention", family='Arial', fontsize=15)
-    plt.margins(0)
-    plt.grid()  # linewidth=0.1, color='black')
-    ax[1].spines['right'].set_linewidth(0.5)
-    ax[1].spines['top'].set_linewidth(0.5)
-    ax[1].spines['right'].set_color('grey')
-    ax[1].spines['top'].set_color('grey')
-    ax[1].set_ylim([np.min(attention[0:299:10].flatten()), np.max(attention[0:299:10].flatten())])
-    ax[1].set_xlim([0, 300])
-    plt.xticks(fontsize=15)
-    plt.yticks(fontsize=15)
-
-    for i, attention_line in enumerate(attention):
-        if i % 10 == 0:
-            ax[1].plot(attention_line, color=colors[i], linewidth=1)
-
-    im = ax[0].plot(np.abs(data[batch_index, :].detach().cpu().numpy()))
     plt.show()
 
 
@@ -169,12 +132,12 @@ def main(args, config):
         complex_path = f"snr-{args.snr}_cs-{args.cs}"
         seq_len = 200
         data_transforms = transforms.Compose(
-            [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
+            [ApplyPD(), Normalise(), OnlyT1T2()])
     else:
         complex_path = None
         seq_len = config.seq_len
         data_transforms = transforms.Compose(
-            [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
+            [Unnormalise(), ApplyPD(), Normalise(), OnlyT1T2()])
 
     if using_spatial:
         _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=seq_len,
@@ -192,7 +155,7 @@ def main(args, config):
     data_loader = torch.utils.data.DataLoader(validation_dataset,
                                               batch_size=1,
                                               collate_fn=ScanwiseDataset.collate_fn,
-                                              shuffle=False,
+                                              shuffle=True,
                                               pin_memory=True,
                                               num_workers=args.workers)
 
@@ -228,10 +191,7 @@ def main(args, config):
             predicted = get_inner_patch(predicted, patch_return_size, use_torch=True).view(-1, 2)
             predicted, labels, pos = remove_zero_labels(predicted, labels, pos)
 
-
-
         if attention is not None:
-            pass
             # attention = attention.cpu().detach().numpy()
             # data = data.detach().cpu().numpy()
             # vmin = np.min(attention[10][0:299:10].flatten())
@@ -241,7 +201,10 @@ def main(args, config):
             # plt.matshow(attention, vmin=vmin, vmax=vmax, cmap='hot')
             # plt.show()
             # plot_1d_nlocal_attention2(attention, data.detach().cpu().numpy())
+            # print(data.shape)
+            # print(attention.shape)
             # plot_1d_nlocal_attention(attention, data)
+            ...
 
         loss = loss_func(predicted, labels)
 

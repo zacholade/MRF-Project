@@ -7,7 +7,8 @@ from torch.nn import functional as F
 
 class _NonLocalBlockND(nn.Module):
     """
-    Embedded Gaussian Nonlocal block
+    Embedded Gaussian Nonlocal block.
+    Adapted implementation of: https://github.com/tea1528/Non-Local-NN-Pytorch/blob/master/models/non_local.py
     """
     def __init__(self, in_channels: int, dimensionality: int,
                  intermediate_dim: int = None, compression: int = 2,
@@ -58,7 +59,7 @@ class _NonLocalBlockND(nn.Module):
             self.g = nn.Sequential(self.g, max_pool)
             self.phi = nn.Sequential(self.g, max_pool)
 
-    def forward(self, x, return_nl_map=False):
+    def forward(self, x, return_nl_map: bool = False):
         batch_size = x.size(0)
 
         g_x = self.g(x).view(batch_size, self.inter_dim, -1)
@@ -117,7 +118,10 @@ class NonLocalAttention1DFor3D(NonLocalBlock1D):
     It achieves this by reshaping the spatial dimensions into the batch size,
     passing it through the 1D non-local block before transforming it back to its original shape.
     """
-    def forward(self, x):
+    def forward(self, x, return_nl_map: bool = False):
         batch_size, c, t, h, w, = x.shape
         x = x.view(batch_size * h * w, c, t)
-        return super().forward(x).view(batch_size, c, t, h, w)
+        x = super().forward(x, return_nl_map)
+        if return_nl_map:
+            return x[0].view(batch_size, c, t, h, w), x[1]
+        return x.view(batch_size, c, t, h, w)

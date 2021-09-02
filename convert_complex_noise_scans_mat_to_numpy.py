@@ -45,9 +45,9 @@ def convert_mat_files_to_np_arrays_and_save():
         import matplotlib.pyplot as plt
         out_filename = f"{filename.split('_snr')[0]}.npy"
         no_noise = np.load("Data/Uncompressed/Test/Data/" + out_filename)[:, :, :300]
-        plt.plot(np.arange(300), no_noise[100, 100])
-        plt.plot(np.arange(300), scan[100, 100])
-        plt.show()
+        # plt.plot(np.arange(300), no_noise[100, 100])
+        # plt.plot(scan[100, 100])
+        # plt.show()
 
         new_sum_squares = np.sum(scan**2, axis=2)  # To assert sum of squares == 1
         # print(new_sum_squares)
