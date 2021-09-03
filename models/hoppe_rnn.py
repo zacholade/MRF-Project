@@ -1,4 +1,3 @@
-import torch
 from torch import nn
 
 from models.modules.median_pool import MedianPool2d
@@ -66,19 +65,3 @@ class Hoppe(nn.Module):
             x = self.spatial_pooling(x)
             x = x[:, :, 1, 1]  # Get central pixel.
         return x
-
-            #
-            # if self.training:  # Training deals with randomly selected 3x3 patches of pixels.
-            #     x = x.view(batch_size, 2, 3, 3)
-            #     x = self.spatial_pooling(x)
-            #     x = x[:, :, 1, 1]  # Get central pixel.
-            # else:  # Eval deals with whole scans with batch_size = number of pixels in scan. Need to reshape to 230x230.
-            #     x_ = (pos // 230).type(torch.LongTensor)
-            #     y_ = (pos % 230).type(torch.LongTensor)
-            #     empty = torch.empty((1, 230, 230, 2), device='cuda' if torch.cuda.is_available() else 'cpu')
-            #     empty[:, x_, y_] = x
-            #     x = empty.transpose(3, 1)
-            #     x = self.spatial_pooling(x).squeeze(0)
-            #     # x = x.squeeze(0)
-            #     x = x.transpose(2, 0)
-            #     x = x[x_, y_]

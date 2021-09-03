@@ -12,6 +12,7 @@ import torch
 from matplotlib import pyplot as plt, cm as cm, pylab as pl
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
 
 
 logger = logging.getLogger("mrf")
@@ -218,7 +219,7 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     actual_t1_map[x, y] = actual_t1
     actual_t2_map[x, y] = actual_t2
 
-    fig, ax = plt.subplots(2, 4, figsize=(48, 28))
+    fig, ax = plt.subplots(2, 4, figsize=(24, 14))
     fig.subplots_adjust(wspace=0.3)
 
     cmap = None
@@ -230,12 +231,44 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
 
+    axins = zoomed_inset_axes(ax[0][0], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(actual_t1_map, origin='lower', vmin=0, vmax=3000, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[0][0], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
+
     im = ax[0][1].matshow(predicted_t1_map, vmin=0, vmax=3000, cmap=cmap)
     ax[0][1].title.set_text("Predicted T1")
     ax[0][1].set_xticks([]), ax[0][1].set_yticks([])
     divider = make_axes_locatable(ax[0][1])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
+
+    axins = zoomed_inset_axes(ax[0][1], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(predicted_t1_map, origin='lower', vmin=0, vmax=3000, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[0][1], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
 
     im = ax[0][2].matshow(np.abs(actual_t1_map - predicted_t1_map), vmin=0, vmax=3000, cmap=cmap)
     ax[0][2].title.set_text("abs(predicted - true) T1")
@@ -244,12 +277,44 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
 
+    axins = zoomed_inset_axes(ax[0][2], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(np.abs(actual_t1_map - predicted_t1_map), origin='lower', vmin=0, vmax=3000, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[0][2], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
+
     im = ax[0][3].matshow(np.abs(actual_t1_map - predicted_t1_map), vmin=0, vmax=200, cmap=cmap)
     ax[0][3].title.set_text("abs(predicted - true) T1")
     ax[0][3].set_xticks([]), ax[0][3].set_yticks([])
     divider = make_axes_locatable(ax[0][3])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
+
+    axins = zoomed_inset_axes(ax[0][3], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(np.abs(actual_t1_map - predicted_t1_map), origin='lower', vmin=0, vmax=200, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[0][3], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
 
     im = ax[1][0].matshow(actual_t2_map, vmin=0, vmax=300, cmap=cmap)
     ax[1][0].title.set_text("True T2")
@@ -258,12 +323,44 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
 
+    axins = zoomed_inset_axes(ax[1][0], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(actual_t2_map, origin='lower', vmin=0, vmax=300, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[1][0], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
+
     im = ax[1][1].matshow(predicted_t2_map, vmin=0, vmax=300, cmap=cmap)
     ax[1][1].title.set_text("Predicted T2")
     ax[1][1].set_xticks([]), ax[1][1].set_yticks([])
     divider = make_axes_locatable(ax[1][1])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
+
+    axins = zoomed_inset_axes(ax[1][1], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(predicted_t2_map, origin='lower', vmin=0, vmax=300, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[1][1], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
 
     im = ax[1][2].matshow(np.abs(actual_t2_map - predicted_t2_map), vmin=0, vmax=300, cmap=cmap)
     ax[1][2].title.set_text("abs(predicted - actual) T2")
@@ -272,12 +369,45 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
 
+    axins = zoomed_inset_axes(ax[1][2], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(np.abs(actual_t2_map - predicted_t2_map), origin='lower', vmin=0, vmax=300, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[1][2], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
+
     im = ax[1][3].matshow(np.abs(actual_t2_map - predicted_t2_map), vmin=0, vmax=20, cmap=cmap)
     ax[1][3].title.set_text("abs(predicted - actual) T2")
     ax[1][3].set_xticks([]), ax[1][3].set_yticks([])
     divider = make_axes_locatable(ax[1][3])
     cax = divider.append_axes('right', size='5%', pad=0.05)
     fig.colorbar(im, cax=cax, shrink=0.8)
+
+    axins = zoomed_inset_axes(ax[1][3], 4, loc=1)
+    for axis in ['top', 'bottom', 'left', 'right']:
+        axins.spines[axis].set_linewidth(1)
+    axins.imshow(np.abs(actual_t2_map - predicted_t2_map), origin='lower', vmin=0, vmax=20, cmap=cmap)
+    axins.set_xlim(90, 115)
+    axins.set_ylim(150, 125)
+    axins.set_xticklabels('')
+    axins.set_yticklabels('')
+    axins.set_xticks([]), axins.set_yticks([])
+    # ax[1][3].indicate_inset_zoom(axins, edgecolor="black", linewidth=2)
+    _, pp1, pp2 = mark_inset(ax[1][3], axins, lw=1, loc1=1, loc2=1, edgecolor='black')
+    pp1.loc1 = 2
+    pp1.loc2 = 3
+    pp2.loc1 = 4
+    pp2.loc2 = 1
+
     plt.savefig(f"{save_dir}/{subj_name}_epoch-{epoch}.svg")
 
     # Clear the current axes.
@@ -288,7 +418,6 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     plt.close('all')
     plt.close(fig)
     gc.collect()
-
 
 
 def plot_fp(fingerprint, epoch: int = 0, save_dir=None):

@@ -18,9 +18,44 @@ from datasets import *
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from transforms import ApplyPD, OnlyT1T2, Normalise, Unnormalise
+from transforms import ApplyPD, OnlyT1T2, Normalise, Unnormalise, NoiseTransform
 from util import load_eval_files, plot_maps, plot, plot_1d_nlocal_attention
 
+
+def plot_cbam_attention(attention, data):
+    batch_index = 0
+
+    fig, ax = plt.subplots(2, 1, figsize=(12, 7))
+
+    rf_pulses = list(np.load("Data/RFpulses.npy"))[:300]
+
+    ax[0].plot(rf_pulses)
+    ax[0].tick_params(axis='both', which='major', labelsize=11)
+    ax[0].set_ylabel("Flip angles (radians)", family='Arial', fontsize=15)
+    ax[0].set_xlabel("Timestep (or channel)", family='Arial', fontsize=15)
+    plt.margins(0)
+    # plt.grid()
+    ax[0].spines['right'].set_linewidth(0.5)
+    ax[0].spines['top'].set_linewidth(0.5)
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].set_ylim([0, 1.2])
+    ax[0].set_xlim([0, 300])
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+
+
+    ax[1].plot(attention[batch_index, :, 1, 1])
+    plt.margins(0)
+    ax[1].tick_params(axis='both', which='major', labelsize=11)
+    ax[1].set_ylabel("Attention Score (a.u.)", family='Arial', fontsize=15)
+    ax[1].set_xlabel("Timestep (or channel)", family='Arial', fontsize=15)
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].set_ylim([0.44, 0.56])
+    ax[1].set_xlim([0, 300])
+
+    plt.show()
 
 def plot_1d_nlocal_attention2(attention, data):
     print(data.shape)
@@ -137,7 +172,7 @@ def main(args, config):
         complex_path = None
         seq_len = config.seq_len
         data_transforms = transforms.Compose(
-            [Unnormalise(), ApplyPD(), Normalise(), OnlyT1T2()])
+            [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
 
     if using_spatial:
         _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=seq_len,
@@ -155,7 +190,7 @@ def main(args, config):
     data_loader = torch.utils.data.DataLoader(validation_dataset,
                                               batch_size=1,
                                               collate_fn=ScanwiseDataset.collate_fn,
-                                              shuffle=True,
+                                              shuffle=False,
                                               pin_memory=True,
                                               num_workers=args.workers)
 
@@ -192,18 +227,9 @@ def main(args, config):
             predicted, labels, pos = remove_zero_labels(predicted, labels, pos)
 
         if attention is not None:
-            # attention = attention.cpu().detach().numpy()
-            # data = data.detach().cpu().numpy()
-            # vmin = np.min(attention[10][0:299:10].flatten())
-            # vmax = np.max(attention[10][0:299:10].flatten())
-            # attention = attention[10, 0:299:1, 0:299:1]
-            # print(attention.shape)
-            # plt.matshow(attention, vmin=vmin, vmax=vmax, cmap='hot')
-            # plt.show()
             # plot_1d_nlocal_attention2(attention, data.detach().cpu().numpy())
-            # print(data.shape)
-            # print(attention.shape)
             # plot_1d_nlocal_attention(attention, data)
+            # plot_cbam_attention(attention.detach().cpu().numpy(), data.detach().cpu().numpy())
             ...
 
         loss = loss_func(predicted, labels)
@@ -247,7 +273,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention',
                        'patch_size', 'balsiger', 'st', 'dm', 'patch_size', 'rca_unet', 'soyak',
-                       'r2plus1d', 'r2plus1d_cbam', 'r2plus1d_non_local', 'r2plus1d_temporal_non_local']
+                       'r2plus1d', 'r1d']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-path', required=True)  # Path to the model + filename

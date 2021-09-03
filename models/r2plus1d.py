@@ -1,9 +1,6 @@
-import numpy as np
 import torch.nn as nn
 from torch.nn.modules.utils import _triple
-import torch.nn.functional as F
 
-from util import plot_1d_nlocal_attention
 from .modules.cbam import CBAMChannelReduction
 from .modules.factorised_spatiotemporal_conv import FactorisedSpatioTemporalConv
 from .modules.non_local_block import NonLocalBlock3D, NonLocalAttention1DFor3D
@@ -180,7 +177,7 @@ class R2Plus1D(nn.Module):
             if self.dimensionality_reduction_level > 0:
                 x = self.nloc_2(x)
             x = self.conv3(x)
-            x, scale = self.nloc_3(x, return_nl_map=True)
+            x = self.nloc_3(x)
             # plot_1d_nlocal_attention(scale, orig)
             # scale_ = scale.view(batch_size, 3, 3, 75, 3, 3, 75).detach().cpu().numpy()
             # scale_ = scale_.mean(axis=(3, 6))
@@ -193,11 +190,11 @@ class R2Plus1D(nn.Module):
             # plt.show()
 
             x = self.conv4(x)
-            x, scale = self.nloc_4(x, return_nl_map=True)
-            plot_1d_nlocal_attention(scale, orig)
+            x = self.nloc_4(x)
+            # plot_1d_nlocal_attention(scale, orig)
             x = self.conv5(x)
-            x, scale = self.nloc_5(x, return_nl_map=True)
-            plot_1d_nlocal_attention(scale, orig)
+            x = self.nloc_5(x)
+            # plot_1d_nlocal_attention(scale, orig)
         else:
             x = self.conv1(x)
             x = self.conv2(x)
@@ -210,4 +207,6 @@ class R2Plus1D(nn.Module):
 
         # Linear layer for classification of the central pixel.
         x = self.linear(x)
-        return x#, scale
+        return x
+
+

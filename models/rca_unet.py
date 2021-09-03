@@ -1,5 +1,3 @@
-from typing import Union
-
 from torch import nn
 import torch
 from torch.nn import functional as F
@@ -42,14 +40,13 @@ class Upsample(nn.Module):
     def forward(self, x, y):
         x = self.upsample(x)
 
-        y_difference = y.size()[2] - x.size()[2]
-        x_difference = y.size()[3] - x.size()[3]
+        x_difference = y.shape[3] - x.shape[3]
+        y_difference = y.shape[2] - x.shape[2]
 
-        x = F.pad(x, [x_difference // 2, x_difference - x_difference // 2,
-                      y_difference // 2, y_difference - y_difference // 2])
+        x = F.pad(x, (x_difference // 2, x_difference - x_difference // 2,
+                      y_difference // 2, y_difference - y_difference // 2))
 
-        x = torch.cat((x, y), dim=1)
-        return self.conv(x)
+        return self.conv(torch.cat((x, y), dim=1))
 
 
 class FeatureExtraction(nn.Module):
@@ -80,14 +77,13 @@ class SubRCAUNet(nn.Module):
         super().__init__()
         self.seq_len = seq_len
         self.patch_size = patch_size
-        factor = 2
         self.in_conv = Convs(temporal_features, 64, rcab=attention)
         self.down1 = Downsample(64, 128, rcab=attention)
         self.down2 = Downsample(128, 256, rcab=attention)
-        self.down3 = Downsample(256, 512 // factor, rcab=attention)
-        self.up1 = Upsample(512, 256 // factor, rcab=attention)
-        self.up2 = Upsample(256, 128 // factor, rcab=attention)
-        self.up3 = Upsample(128, 64 // factor, rcab=attention)
+        self.down3 = Downsample(256, 256, rcab=attention)
+        self.up1 = Upsample(512, 128, rcab=attention)
+        self.up2 = Upsample(256, 64, rcab=attention)
+        self.up3 = Upsample(128, 32, rcab=attention)
         self.out_conv = Convs(32, 1, rcab=False)
 
     def forward(self, x):

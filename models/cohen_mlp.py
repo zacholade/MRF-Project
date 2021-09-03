@@ -5,7 +5,7 @@ class CohenMLP(nn.Module):
     """
     https://doi.org/10.1002/mrm.27198
     """
-    def __init__(self, seq_len: int = 1000, modern=False):
+    def __init__(self, seq_len: int = 1000, modern: bool = False):
         super().__init__()
         if modern:
             self.layers = nn.Sequential(

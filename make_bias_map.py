@@ -1,22 +1,15 @@
 import argparse
 
-import h5py
 import numpy as np
-import torch
-from torch import nn
-import torch.utils.data
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader, BatchSampler, RandomSampler, SequentialSampler
 import scipy.io
+import torch
+import torch.utils.data
+from matplotlib import pyplot as plt
+from torch.utils.data import DataLoader, BatchSampler, SequentialSampler
 
 from config_parser import Configuration
 from models.dm import DM
 from mrf_trainer import get_network
-
-import matplotlib
-from matplotlib import pyplot as plt, cm as cm, pylab as pl
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 
 class DictDataset(torch.utils.data.Dataset):
@@ -75,6 +68,10 @@ def main(args, config):
         batch_size = lut.shape[0]
         data = torch.repeat_interleave(data, 9, dim=1).view(batch_size, 300, 3, 3)
         pred = model.forward(data)
+
+        if isinstance(predicted, tuple):  # Attention present
+            predicted = predicted[0]
+
         if predicted is None:
             predicted = pred.detach().cpu().numpy()
         else:
@@ -89,8 +86,8 @@ def main(args, config):
     ax[0][1].grid(True)
     ax[1][0].grid(True)
 
-    ax[0][0].scatter(lut[:, 0], predicted[:, 0], s=2)
-    ax[1][0].scatter(lut[:, 1], predicted[:, 1], s=2)
+    ax[0][0].scatter(lut[:, 0], predicted[:, 0], s=2, label="Estimation")
+    ax[1][0].scatter(lut[:, 1], predicted[:, 1], s=2, label="Estimation")
 
     t1_groundtruth_errors = []
     t2_groundtruth_errors = []
@@ -131,8 +128,10 @@ def main(args, config):
     t2_groundtruth_errors = np.array(t2_groundtruth_errors)
 
     # Plot red groundtruth lines
-    ax[0][0].plot(t1_groundtruth_errors, t1_groundtruth_errors, color='red')
-    ax[1][0].plot(t2_groundtruth_errors, t2_groundtruth_errors, color='red')
+    ax[0][0].plot(t1_groundtruth_errors, t1_groundtruth_errors, color='red', label="Ground-Truth")
+    ax[1][0].plot(t2_groundtruth_errors, t2_groundtruth_errors, color='red', label="Ground-Truth")
+    ax[0][0].legend(loc="upper left", prop={'size': 20})
+    ax[1][0].legend(loc="upper left", prop={'size': 20})
 
     t1_groundtruth_errors = t1_groundtruth_errors.repeat(t1_len)
     t2_groundtruth_errors = t2_groundtruth_errors.repeat(t2_len)
@@ -147,24 +146,31 @@ def main(args, config):
     ax[0][1].scatter(t1_groundtruth_errors, -t1_loss,  s=2)
     ax[1][1].scatter(t2_groundtruth_errors, -t2_loss, s=2)
 
-    ax[0][0].set_ylabel("Estimated T1 (ms)", family='Arial', fontsize=15)
-    ax[0][0].set_xlabel("Groundtruth T1 (ms)", family='Arial', fontsize=15)
-    ax[1][0].set_ylabel("Estimated T2 (ms)", family='Arial', fontsize=15)
-    ax[1][0].set_xlabel("Groundtruth T2 (ms)", family='Arial', fontsize=15)
+    ax[0][0].set_ylabel("Estimated T1 (ms)", family='Arial', fontsize=20)
+    ax[0][0].set_xlabel("Groundtruth T1 (ms)", family='Arial', fontsize=20)
+    ax[1][0].set_ylabel("Estimated T2 (ms)", family='Arial', fontsize=20)
+    ax[1][0].set_xlabel("Groundtruth T2 (ms)", family='Arial', fontsize=20)
 
-    ax[0][1].set_xlabel("Groundtruth T1 (ms)", family='Arial', fontsize=15)
-    ax[1][1].set_xlabel("Groundtruth T2 (ms)", family='Arial', fontsize=15)
-    ax[0][1].set_ylabel("Relative Error of T1 (ms)", family='Arial', fontsize=15)
-    ax[1][1].set_ylabel("Relative Error of T2 (ms)", family='Arial', fontsize=15)
+    ax[0][1].set_xlabel("Groundtruth T1 (ms)", family='Arial', fontsize=20)
+    ax[1][1].set_xlabel("Groundtruth T2 (ms)", family='Arial', fontsize=20)
+    ax[0][1].set_ylabel("Relative Error of T1 (ms)", family='Arial', fontsize=20)
+    ax[1][1].set_ylabel("Relative Error of T2 (ms)", family='Arial', fontsize=20)
 
     ax[0][0].set_xlim((200, 3000))
     ax[0][0].set_ylim((200, 3500))
 
     ax[1][0].set_xlim((50, 500))
-    ax[1][0].set_ylim((50, 500))
+    ax[1][0].set_ylim((50, 700))
 
     ax[0][1].set_xlim((200, 3000))
     ax[1][1].set_xlim((50, 500))
+
+    ax[1][1].tick_params(axis='both', which='major', labelsize=15)
+    ax[0][0].tick_params(axis='both', which='major', labelsize=15)
+    ax[1][0].tick_params(axis='both', which='major', labelsize=15)
+    ax[0][1].tick_params(axis='both', which='major', labelsize=15)
+
+
     # ax[1][1].set_xlim((200, 3000))
     # ax[0][1].set_xlim((200, 3000))
 

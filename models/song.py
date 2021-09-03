@@ -1,7 +1,7 @@
 from torch import nn
 
 from models.modules.non_local_block import NonLocalBlock1D
-from util import plot_1d_nlocal_attention
+
 
 class ResNetLayer(nn.Module):
     def __init__(self, in_channels: int, out_channels: int = 16,
@@ -66,32 +66,27 @@ class Song(nn.Module):
 
     def forward(self, x):
         batch_size = x.shape[0]
-        orig = x.detach().clone()
         x = x.view(batch_size, 1, -1)
         x = self.conv1ds(x)
-        x, nl_map = self.nloc_0(x, return_nl_map=True)
-        plot_1d_nlocal_attention(nl_map, orig)
+        x, nl_map = self.nloc_0(x)
 
         x = self.maxp_1(x)
         x = self.resx_1(x)
         y = self.resy_1(x)
-        x, nl_map = self.nloc_1(x + y, return_nl_map=True)
-        plot_1d_nlocal_attention(nl_map, orig)
+        x = self.nloc_1(x + y)
 
         x = self.maxp_2(x)
         x = self.resx_2(x)
         y = self.resy_2(x)
-        x, nl_map = self.nloc_2(x + y, return_nl_map=True)
-        plot_1d_nlocal_attention(nl_map, orig)
+        x = self.nloc_2(x + y)
 
         x = self.maxp_3(x)
         x = self.resx_3(x)
         y = self.resy_3(x)
-        x, nl_map = self.nloc_3(x + y, return_nl_map=True)
-        plot_1d_nlocal_attention(nl_map, orig)
+        x = self.nloc_3(x + y)
         x = x.mean(2)
         x = self.out(x)
-        return x, nl_map
+        return x
 
     def _init_weights(self, m):
         if isinstance(m, nn.Conv1d):
