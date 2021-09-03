@@ -2,24 +2,23 @@
 Used to evaluate model performance using the test data.
 """
 
+import argparse
 import math
-
-import torch
 import os
 
+import matplotlib.pyplot as plt
+import torch
+import torchvision.transforms as transforms
 from torch import nn
+from torch.utils.data import DataLoader
 
-from data_logger import DataLogger
-import argparse
 from config_parser import Configuration
+from data_logger import DataLogger
+from datasets import *
 from models.dm import DM
 from mrf_trainer import get_network
-from datasets import *
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
 from transforms import ApplyPD, OnlyT1T2, Normalise, Unnormalise, NoiseTransform
-from util import load_eval_files, plot_maps, plot, plot_1d_nlocal_attention
+from util import load_eval_files, plot_maps, plot
 
 
 def plot_cbam_attention(attention, data):
@@ -56,6 +55,7 @@ def plot_cbam_attention(attention, data):
     ax[1].set_xlim([0, 300])
 
     plt.show()
+
 
 def plot_1d_nlocal_attention2(attention, data):
     print(data.shape)

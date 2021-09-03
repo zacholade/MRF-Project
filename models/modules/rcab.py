@@ -17,6 +17,7 @@ class ChannelAttention(nn.Module):
 
 
 class RCAB(nn.Module):
+    """RCAB block acquired from https://github.com/yjn870/RCAN-pytorch"""
     def __init__(self, num_channels, reduction: int = 1):
         super().__init__()
         self.layers = nn.Sequential(

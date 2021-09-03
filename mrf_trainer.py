@@ -18,8 +18,7 @@ from data_logger import DataLogger
 from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPatchwiseDataset
 from logging_manager import setup_logging, LoggingMixin
 from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
-                    RCAUNet, PatchSizeTest, R2Plus1DCbam, R2Plus1DNonLocal,
-                    Balsiger, R2Plus1DTemporalNonLocal, Soyak)
+                    RCAUNet, PatchSizeTest, Balsiger, Soyak)
 from models.r2plus1d import R2Plus1D
 from models.r1d import R1D
 from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise
