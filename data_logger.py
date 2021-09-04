@@ -10,6 +10,8 @@ logger = logging.getLogger('mrf')
 
 class DataLogger:
     """
+    Used to log data to a csv file.
+
     The idea is to call the log method each iteration of an epoch during both train and validation.
     The value is appended to a list. Then, when on_epoch_end() method is called. It will take the mean of
     all values in the list and save it to a csv file.

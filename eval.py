@@ -58,8 +58,6 @@ def plot_cbam_attention(attention, data):
 
 
 def plot_1d_nlocal_attention2(attention, data):
-    print(data.shape)
-    print(attention.shape)
     attention = attention.detach().cpu().numpy()
     batch_index = 10
     attention = attention[batch_index]

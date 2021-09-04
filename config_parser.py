@@ -1,5 +1,4 @@
 import configparser
-import typing
 
 
 config = configparser.ConfigParser()

@@ -147,8 +147,7 @@ def main(args, config):
 
                     if not os.path.exists(f"{export_dir}/Plots"):
                         os.mkdir(f"{export_dir}/Plots")
-                    # Matplotlib has a memory leak. To alleviate this do plotting in a subprocess and
-                    # join to it. When process is suspended, memory is forcibly released.
+
                     plot(plot_maps,
                          chunk_predicted.numpy(),
                          chunk_labels.numpy(),
