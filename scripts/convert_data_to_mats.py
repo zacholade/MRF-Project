@@ -12,10 +12,10 @@ for filename in os.listdir("..Data/Uncompressed/Test/Data"):
     dn = label[:, :, 4]
     data *= dn[:, :, np.newaxis]
 
-    label_mat = {"T1": label[:, :, 0], "T2": label[:, :, 1],
-                 "PD": label[:, :, 2], "norm_values": label[:, :, 4]}
+    label_mat = {"T1_phantom": label[:, :, 0], "T2_phantom": label[:, :, 1],
+                 "density": label[:, :, 2], "norm_values": label[:, :, 4]}
 
-    data_mat = {"time_signal": data}
+    data_mat = {"fingerprint": data}
 
     filename = filename.replace('.npy', '.mat')
     scipy.io.savemat(f"..CoverBLIP/CoverBLIP toolbox/data/labels/{filename}", label_mat)

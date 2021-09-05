@@ -116,7 +116,8 @@ class SNRTransform(BaseTransform):
 
         # Calculate noise power to achieve desired SNR
         noise_power = signal_power / snr
-
+        print(noise_power)
+        print('hi')
         # Generate noise with calculated power that achieves SNR
         noise = np.random.randn(*data.shape) * np.sqrt(noise_power)
 

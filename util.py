@@ -25,7 +25,7 @@ def get_all_data_files(compressed: bool, test: bool = False, complex_path: str =
     if test:
         if complex_path:  # reconstruct scans with COMPLEX noise and undersampled!
             # fingerprint_path = fingerprint_path.
-            fingerprint_path = f"Data/{compressed}/Test/ComplexNoise/{complex_path}/"
+            fingerprint_path = f"Data/{compressed}/Test/Undersampled/{complex_path}/"
             label_path = f"Data/{compressed}/Test/Labels/"
         else:
             fingerprint_path = fingerprint_path.replace("/Data", "/Test/Data")
@@ -202,18 +202,25 @@ def plot_maps(predicted, labels, pos, epoch: int, save_dir: str, subj_name: str)
     if not os.path.exists(save_dir):
         os.mkdir(save_dir)
 
-    predicted_t1, predicted_t2 = predicted.transpose()
-    actual_t1, actual_t2 = labels.transpose()
+    if pos is not None:
+        predicted_t1, predicted_t2 = predicted.transpose()
+        actual_t1, actual_t2 = labels.transpose()
 
-    x = pos // 230
-    y = pos % 230
+        x = pos // 230
+        y = pos % 230
 
-    predicted_t1_map, predicted_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
-    actual_t1_map, actual_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
-    predicted_t1_map[x, y] = predicted_t1
-    predicted_t2_map[x, y] = predicted_t2
-    actual_t1_map[x, y] = actual_t1
-    actual_t2_map[x, y] = actual_t2
+        predicted_t1_map, predicted_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
+        actual_t1_map, actual_t2_map = np.zeros((230, 230)), np.zeros((230, 230))
+
+        predicted_t1_map[x, y] = predicted_t1
+        predicted_t2_map[x, y] = predicted_t2
+        actual_t1_map[x, y] = actual_t1
+        actual_t2_map[x, y] = actual_t2
+    else:
+        predicted_t1_map = predicted[:, :, 0]
+        predicted_t2_map = predicted[:, :, 1]
+        actual_t1_map = labels[:, :, 0]
+        actual_t2_map = labels[:, :, 1]
 
     fig, ax = plt.subplots(2, 4, figsize=(24, 14))
     fig.subplots_adjust(wspace=0.3)

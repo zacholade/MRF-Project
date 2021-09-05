@@ -43,7 +43,7 @@ def convert_mat_files_to_np_arrays_and_save():
         scan = np.array(mat.get('out_matrix'))
 
         import matplotlib.pyplot as plt
-        out_filename = f"{filename.split('_snr')[0]}.npy"
+        out_filename = f"{filename.split('_cs')[0]}.npy"
         no_noise = np.load("Data/Uncompressed/Test/Data/" + out_filename)[:, :, :300]
         # plt.plot(np.arange(300), no_noise[100, 100])
         # plt.plot(scan[100, 100])
@@ -52,31 +52,30 @@ def convert_mat_files_to_np_arrays_and_save():
         new_sum_squares = np.sum(scan**2, axis=2)  # To assert sum of squares == 1
         # print(new_sum_squares)
 
-        snr = re.findall('snr-([0-9]*)', filename)[0]
         sub_sample_ratio = re.findall('cs-([0-9]*)', filename)[0]
 
-        uncompressed_base_output = 'Data/Uncompressed/Test/ComplexNoise'
+        uncompressed_base_output = 'Data/Uncompressed/Test/Undersampled'
         if not os.path.exists(uncompressed_base_output):
             os.mkdir(uncompressed_base_output)
 
-        output_dir = f'{uncompressed_base_output}/snr-{snr}_cs-{sub_sample_ratio}'
+        output_dir = f'{uncompressed_base_output}/cs-{sub_sample_ratio}'
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 
-        out_filename = f"{filename.split('_snr')[0]}.npy"
+        out_filename = f"{filename.split('_cs')[0]}.npy"
         with open(f"{output_dir}/{out_filename}", "wb") as f:
             np.save(f, scan)
 
         # Compressed Data: ---------------------------------------------------------
 
-        label = np.load(f"Data/Uncompressed/Test/Labels/{filename.split('_snr')[0]}.npy")
+        label = np.load(f"Data/Uncompressed/Test/Labels/{filename.split('_cs')[0]}.npy")
         data, label = convert_to_compact_array(scan, label)
 
-        compressed_base_output = 'Data/Compressed/Test/ComplexNoise'
+        compressed_base_output = 'Data/Compressed/Test/Undersampled'
         if not os.path.exists(compressed_base_output):
             os.mkdir(compressed_base_output)
 
-        output_dir = f'{compressed_base_output}/snr-{snr}_cs-{sub_sample_ratio}'
+        output_dir = f'{compressed_base_output}/cs-{sub_sample_ratio}'
         if not os.path.exists(output_dir):
             os.mkdir(output_dir)
 

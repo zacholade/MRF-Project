@@ -162,12 +162,12 @@ def main(args, config):
     loss_func = nn.MSELoss()
 
     if args.cs is not None:
-        complex_path = f"snr-{args.snr}_cs-{args.cs}"
+        undersampled_path = f"cs-{args.cs}"
         seq_len = 200
         data_transforms = transforms.Compose(
-            [ApplyPD(), Normalise(), OnlyT1T2()])
+            [Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
     else:
-        complex_path = None
+        undersampled_path = None
         seq_len = config.seq_len
         data_transforms = transforms.Compose(
             [Unnormalise(), ApplyPD(), Normalise(), NoiseTransform(0, 0.01), OnlyT1T2()])
@@ -175,13 +175,13 @@ def main(args, config):
     if using_spatial:
         _data, _labels, _file_lens, _file_names, _pos = load_eval_files(seq_len=seq_len,
                                                                         compressed=not using_spatial,
-                                                                        complex_path=complex_path)
+                                                                        complex_path=undersampled_path)
         validation_dataset = ScanPatchwiseDataset(args.chunks, model.patch_size, _pos, patch_return_size, _data,
                                                   _labels, _file_lens, _file_names, transform=data_transforms)
     else:
         _data, _labels, _file_lens, _file_names = load_eval_files(seq_len=seq_len,
                                                                   compressed=not using_spatial,
-                                                                  complex_path=complex_path)
+                                                                  complex_path=undersampled_path)
         validation_dataset = ScanwiseDataset(args.chunks, _data, _labels, _file_lens,
                                              _file_names, transform=data_transforms)
 
@@ -193,8 +193,8 @@ def main(args, config):
                                               num_workers=args.workers)
 
     export_dir = f"Exports/Test/{args.path.split('.')[0]}"
-    if args.snr is not None:
-        export_dir += f"_snr-{args.snr}_cs-{args.cs}"
+    if args.cs is not None:
+        export_dir += f"cs-{args.cs}"
 
     if not os.path.exists(export_dir):
         os.mkdir(export_dir)

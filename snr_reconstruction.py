@@ -91,8 +91,8 @@ def main(args, config):
 
 
     monte_carlo_iterations = 25
-    for snr in (4, 8, 16, 32, 64):
-        for i in range(monte_carlo_iterations):  # 100 simulations per noise.
+    for snr in (2, 4, 8, 16, 32, 64):
+        for i in range(monte_carlo_iterations):  # 25 simulations per noise.
             print(f"{snr}:{i}")
             data_transforms = transforms.Compose(
                 [Unnormalise(), SNRTransform(snr), Normalise(), OnlyT1T2()])
