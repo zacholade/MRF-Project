@@ -68,7 +68,7 @@ class Song(nn.Module):
         batch_size = x.shape[0]
         x = x.view(batch_size, 1, -1)
         x = self.conv1ds(x)
-        x, nl_map = self.nloc_0(x)
+        x = self.nloc_0(x)
 
         x = self.maxp_1(x)
         x = self.resx_1(x)

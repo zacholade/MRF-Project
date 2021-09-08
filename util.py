@@ -547,7 +547,7 @@ def plot_1d_nlocal_attention(attention, data):
     ax[0].set_ylim([0, nearest_05])
     ax[0].set_xlim([0, 300])
 
-    fig, ax = plt.subplots(1, 1, figsize=(24, 14))
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
     im = ax.matshow(attention[channel_len:0:-1, 0:channel_len:1], cmap=my_cmap, extent=[1, channel_len, 1, channel_len])
     divider = make_axes_locatable(ax)
     cax = divider.append_axes('right', size='5%', pad=0.05)

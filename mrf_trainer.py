@@ -371,6 +371,7 @@ def get_network(network: str, config):
         import sys  # Should not be able to reach here as we provide a choice.
         print("Invalid network. Exiting...")
         sys.exit(1)
+
     return model, using_spatial, using_attention, patch_return_size
 
 

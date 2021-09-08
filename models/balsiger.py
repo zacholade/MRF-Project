@@ -31,7 +31,7 @@ class Balsiger(nn.Module):
         modules = [
             nn.Conv2d(in_channels=in_channels, out_channels=out_channels,
                       kernel_size=kernel_size, stride=stride, padding=padding)]
-        dropout and modules.append(nn.Dropout2d(p=0.02))
+        dropout and modules.append(nn.Dropout2d(p=0.2))
         batch_norm and modules.append(nn.BatchNorm2d(out_channels))
         activation == 'relu' and modules.append(nn.ReLU())
         return nn.Sequential(*modules)

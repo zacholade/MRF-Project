@@ -146,6 +146,7 @@ def remove_zero_labels(predicted, labels, pos=None):
 def main(args, config):
     patch_return_size = 1
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     if args.network.lower() == "dm":
         model, using_spatial, using_attention = DM(config.seq_len), False, False
     else:

@@ -1,6 +1,7 @@
 import torch.nn as nn
 from torch.nn.modules.utils import _triple
 
+from util import plot_1d_nlocal_attention
 from .modules.cbam import CBAMChannelReduction
 from .modules.factorised_spatiotemporal_conv import FactorisedSpatioTemporalConv
 from .modules.non_local_block import NonLocalBlock3D, NonLocalAttention1DFor3D
@@ -177,10 +178,10 @@ class R2Plus1D(nn.Module):
             if self.dimensionality_reduction_level > 0:
                 x = self.nloc_2(x)
             x = self.conv3(x)
-            x = self.nloc_3(x)
+            x, scale = self.nloc_3(x, return_nl_map=True)
+            plot_1d_nlocal_attention(scale, orig)
             # plot_1d_nlocal_attention(scale, orig)
-            # scale_ = scale.view(batch_size, 3, 3, 75, 3, 3, 75).detach().cpu().numpy()
-            # scale_ = scale_.mean(axis=(3, 6))
+
             # import matplotlib.pyplot as plt
             # fig, ax = plt.subplots(3, 3, figsize=(12, 7))
             # b = np.random.randint(0, batch_size-1)
@@ -190,10 +191,11 @@ class R2Plus1D(nn.Module):
             # plt.show()
 
             x = self.conv4(x)
-            x = self.nloc_4(x)
-            # plot_1d_nlocal_attention(scale, orig)
+            x, scale = self.nloc_4(x, return_nl_map=True)
+            plot_1d_nlocal_attention(scale, orig)
             x = self.conv5(x)
-            x = self.nloc_5(x)
+            x, scale = self.nloc_5(x, return_nl_map=True)
+            plot_1d_nlocal_attention(scale, orig)
             # plot_1d_nlocal_attention(scale, orig)
         else:
             x = self.conv1(x)

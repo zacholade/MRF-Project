@@ -1,5 +1,8 @@
+"""
+Used in the mrf_trainer file to backup stdout logging to a file for later inference.
+"""
+
 import logging
-import sys
 from contextlib import contextmanager
 
 ROOT_LOGGER_NAME = 'mrf'

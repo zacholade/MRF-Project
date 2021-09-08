@@ -6,6 +6,7 @@ from torch import nn
 
 import copy
 from data_logger import DataLogger
+from eval import remove_zero_labels
 from models import *
 import argparse
 from config_parser import Configuration
@@ -128,6 +129,11 @@ def main(args, config):
                 if isinstance(predicted, tuple):
                     attention = predicted[1]
                     predicted = predicted[0]
+
+                if patch_return_size > 1:
+                    predicted = get_inner_patch(predicted, patch_return_size, use_torch=True).view(-1, 2)
+                    predicted, labels, pos = remove_zero_labels(predicted, labels, pos)
+
                 loss = loss_func(predicted, labels)
 
                 data, labels = data.cpu(), labels.cpu()
@@ -167,8 +173,8 @@ def main(args, config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention',
-                       'patch_size', 'balsiger', 'st', 'dm', 'patch_size',
-                       'r2plus1d', 'r2plus1d_cbam', 'r2plus1d_non_local', 'r2plus1d_temporal_non_local']
+                       'patch_size', 'balsiger', 'st', 'dm', 'patch_size', 'rca_unet',
+                       'r2plus1d']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.
     parser.add_argument('-path', required=True)  # Path to the model + filename
