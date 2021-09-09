@@ -1,25 +1,18 @@
-import numpy as np
-import torch
+import argparse
 import os
 
-from torch import nn
-
-import copy
-from data_logger import DataLogger
-from eval import remove_zero_labels
-from models import *
-import argparse
-from config_parser import Configuration
-from models.dm import DM
-from mrf_trainer import get_network
-from datasets import *
+import torch
 import torchvision.transforms as transforms
+from torch import nn
 from torch.utils.data import DataLoader
 
-import matplotlib.pyplot as plt
-from transforms import ApplyPD, OnlyT1T2, NoiseTransform, Normalise, Unnormalise, SNRTransform
-from util import load_eval_files, plot_maps, plot
-import h5py
+from config_parser import Configuration
+from data_logger import DataLogger
+from datasets import *
+from models.dm import DM
+from mrf_trainer import get_network
+from transforms import OnlyT1T2, Normalise, Unnormalise, SNRTransform
+from util import load_eval_files, plot_maps, plot, remove_zero_labels
 
 
 def log_in_vivo_sections(predicted, labels, data_logger):
@@ -173,7 +166,7 @@ def main(args, config):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     network_choices = ['cohen', 'oksuz_rnn', 'hoppe', 'song', 'rnn_attention',
-                       'patch_size', 'balsiger', 'st', 'dm', 'patch_size', 'rca_unet',
+                       'patch_size', 'balsiger', 'st', 'dm', 'patch_size', 'rca_unet', 'soyak',
                        'r2plus1d']
     parser.add_argument('-network', '-n', dest='network', choices=network_choices, type=str.lower, required=True)
     parser.add_argument('-chunks', default=10, type=int)  # How many chunks to do a validation scan in.

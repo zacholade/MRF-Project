@@ -5,6 +5,7 @@ import os
 file_names = os.listdir("../Figures/training_curves")
 file_names = [file for file in file_names if file.endswith("csv")]
 
+
 def plot(reader, file_name, save):
         fig, ax = plt.subplots(1, 1, figsize=(12, 7))
         ax.margins(0)
@@ -37,7 +38,7 @@ def plot(reader, file_name, save):
             plt.savefig("../Figures/training_curves/" + file_name.split('.')[0] + '.png')
 
 
-file_name = "hoppe_no_spatial.csv"
+file_name = "patch7.csv"
 with open("../Figures/training_curves/" + file_name, 'r') as file:
     reader = csv.reader(file)
 
@@ -52,6 +53,8 @@ with open("../Figures/training_curves/" + file_name, 'r') as file:
 
         train_mapes.append(float(row[train_mape_row]))
         valid_mapes.append(float(row[valid_mape_row]))
+        if i == 99:
+            break
 
     avg_valid = sum(valid_mapes[-20:]) / 20
     avg_train = sum(train_mapes[-20:]) / 20

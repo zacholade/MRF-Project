@@ -76,9 +76,6 @@ for i, t1 in enumerate(t1s):
 plt.show()
 
 
-#_----------------------------------
-
-
 t1 = 1000
 t2s = np.flip(np.arange(10, 310, 10))
 print(t2s)

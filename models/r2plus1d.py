@@ -158,9 +158,6 @@ class R2Plus1D(nn.Module):
         self.linear = nn.Linear(128, 2)
 
     def forward(self, x):
-        batch_size = x.size(0)
-        orig = x.detach().clone()
-
         # Channel reduction if using it.
         if self.use_dimensionality_reduction:
             x, scale = self.dimensionality_reduction(x)
@@ -178,25 +175,11 @@ class R2Plus1D(nn.Module):
             if self.dimensionality_reduction_level > 0:
                 x = self.nloc_2(x)
             x = self.conv3(x)
-            x, scale = self.nloc_3(x, return_nl_map=True)
-            plot_1d_nlocal_attention(scale, orig)
-            # plot_1d_nlocal_attention(scale, orig)
-
-            # import matplotlib.pyplot as plt
-            # fig, ax = plt.subplots(3, 3, figsize=(12, 7))
-            # b = np.random.randint(0, batch_size-1)
-            # for x_ in range(3):
-            #     for y_ in range(3):
-            #         ax[x_][y_].matshow(scale_[0, x_, y_], vmin=0.001, vmax=0.003)
-            # plt.show()
-
+            x = self.nloc_3(x)
             x = self.conv4(x)
-            x, scale = self.nloc_4(x, return_nl_map=True)
-            plot_1d_nlocal_attention(scale, orig)
+            x = self.nloc_4(x)
             x = self.conv5(x)
-            x, scale = self.nloc_5(x, return_nl_map=True)
-            plot_1d_nlocal_attention(scale, orig)
-            # plot_1d_nlocal_attention(scale, orig)
+            x = self.nloc_5(x)
         else:
             x = self.conv1(x)
             x = self.conv2(x)
@@ -210,5 +193,3 @@ class R2Plus1D(nn.Module):
         # Linear layer for classification of the central pixel.
         x = self.linear(x)
         return x
-
-

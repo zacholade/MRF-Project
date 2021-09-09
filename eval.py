@@ -3,10 +3,9 @@ Used to evaluate model performance using the test data.
 """
 
 import argparse
-import math
 import os
+import time
 
-import matplotlib.pyplot as plt
 import torch
 import torchvision.transforms as transforms
 from torch import nn
@@ -18,135 +17,12 @@ from datasets import *
 from models.dm import DM
 from mrf_trainer import get_network
 from transforms import ApplyPD, OnlyT1T2, Normalise, Unnormalise, NoiseTransform
-from util import load_eval_files, plot_maps, plot
-
-
-def plot_cbam_attention(attention, data):
-    batch_index = 0
-
-    fig, ax = plt.subplots(2, 1, figsize=(12, 7))
-
-    rf_pulses = list(np.load("Data/RFpulses.npy"))[:300]
-
-    ax[0].plot(rf_pulses)
-    ax[0].tick_params(axis='both', which='major', labelsize=11)
-    ax[0].set_ylabel("Flip angles (radians)", family='Arial', fontsize=15)
-    ax[0].set_xlabel("Timestep (or channel)", family='Arial', fontsize=15)
-    plt.margins(0)
-    # plt.grid()
-    ax[0].spines['right'].set_linewidth(0.5)
-    ax[0].spines['top'].set_linewidth(0.5)
-    ax[0].spines['right'].set_visible(False)
-    ax[0].spines['top'].set_visible(False)
-    ax[0].set_ylim([0, 1.2])
-    ax[0].set_xlim([0, 300])
-    plt.xticks(fontsize=15)
-    plt.yticks(fontsize=15)
-
-
-    ax[1].plot(attention[batch_index, :, 1, 1])
-    plt.margins(0)
-    ax[1].tick_params(axis='both', which='major', labelsize=11)
-    ax[1].set_ylabel("Attention Score (a.u.)", family='Arial', fontsize=15)
-    ax[1].set_xlabel("Timestep (or channel)", family='Arial', fontsize=15)
-    ax[1].spines['right'].set_visible(False)
-    ax[1].spines['top'].set_visible(False)
-    ax[1].set_ylim([0.44, 0.56])
-    ax[1].set_xlim([0, 300])
-
-    plt.show()
-
-
-def plot_1d_nlocal_attention2(attention, data):
-    attention = attention.detach().cpu().numpy()
-    batch_index = 10
-    attention = attention[batch_index]
-    data = data[batch_index]
-    attention -= (1 / attention.shape[1])  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
-    plt.tight_layout()
-    fig, ax = plt.subplots(6, 1, figsize=(12, 7))
-
-    plt.margins(0)
-    plt.xlabel("Time Point (or channel)", labelpad=20)
-    fig.text(0.05, 0.35, "Normalised Attention Score", rotation='vertical')
-
-    largest_value = 0
-    max_value = 0
-    for i, attention_line in enumerate(attention[np.array([0, 60, 120, 180, 240, 299])]):
-        max_value = max(np.max(np.abs(attention_line)), max_value)
-        print(i)
-        # ax[i//60].plot(np.zeros(len(attention_line)), linewidth=1, color='black')
-        ax[i].plot(attention_line)
-
-    nearest_005 = math.ceil(max_value * 200) / 200  # Round to nearest 0.005
-    for axis in range(6):
-        ax[axis].spines['top'].set_visible(False)
-        ax[axis].spines['right'].set_visible(False)
-        ax[axis].set_ylim([-nearest_005, nearest_005])
-        ax[axis].set_xlim([0, 300])
-        ax[axis].spines['bottom'].set_position('center')
-        # ax[axis].set_xticklabels(ax[axis].get_xticks(), rotation=90)
-
-    plt.show()
-    # Data plot
-    fig_data, ax_data = plt.subplots(1, 1, figsize=(12, 7))
-    ax_data.set_ylabel("Normalised fingeprint (a.u.)", family='Arial', fontsize=15)
-    ax_data.set_xlabel("Excitation number", family='Arial', fontsize=15)
-    plt.margins(0)
-    plt.grid()  # linewidth=0.1, color='black')
-    ax_data.spines['right'].set_linewidth(0.5)
-    ax_data.spines['top'].set_linewidth(0.5)
-    ax_data.spines['right'].set_color('grey')
-    ax_data.spines['top'].set_color('grey')
-    nearest_005 = math.ceil(np.max(np.abs(data)) * 20) / 20  # Round to nearest 0.05
-    ax_data.set_ylim([0, nearest_005])
-    ax_data.set_xlim([0, 300])
-    plt.xticks(fontsize=15)
-    plt.yticks(fontsize=15)
-    ax_data.plot(np.abs(data))
-
-    plt.show()
-
-
-def log_in_vivo_sections(predicted, labels, data_logger):
-    white_matter_mask = torch.where((685-33 <= labels[:, 0]) & (labels[:, 0] <= 685+33), True, False)
-    predicted_white_matter_masked = predicted[white_matter_mask]
-    true_white_matter_masked = labels[white_matter_mask]
-
-    grey_matter_mask = torch.where((1180-104 <= labels[:, 0]) & (labels[:, 0] <= 1180+104), True, False)
-    predicted_grey_matter_masked = predicted[grey_matter_mask]
-    true_grey_matter_masked = labels[grey_matter_mask]
-
-    cbsf_mask = torch.where((4880-379 <= labels[:, 0]) & (labels[:, 0] <= 4880+251), True, False)
-    predicted_cbsf_masked = predicted[cbsf_mask]
-    true_cbsf_masked = labels[cbsf_mask]
-
-    # If statements in case there is no tissue in the range for that scan.
-    if true_cbsf_masked.size(0) != 0:
-        data_logger.log_error(predicted_white_matter_masked, true_white_matter_masked, None, "white")
-    if true_grey_matter_masked.size(0) != 0:
-        data_logger.log_error(predicted_grey_matter_masked, true_grey_matter_masked, None, "grey")
-    if true_cbsf_masked.size(0) != 0:
-        data_logger.log_error(predicted_cbsf_masked, true_cbsf_masked, None, "cbsf")
-
-
-def remove_zero_labels(predicted, labels, pos=None):
-    """
-    Some models return a full patch prediction (soyak, rca-unet).
-    In these cases, some labels will contain air. Remove these from predicted and labels
-    so we dont back prop on them as they are later masked
-    and so that we dont result in infinity values for MAPE due to label being zero.
-    """
-    mask = labels[:, 0] != 0
-    if pos is not None:
-        return predicted[mask], labels[mask], pos[mask]
-    return predicted[mask], labels[mask]
+from util import load_eval_files, plot_maps, plot, log_in_vivo_sections, remove_zero_labels
 
 
 def main(args, config):
     patch_return_size = 1
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = "cpu"
     if args.network.lower() == "dm":
         model, using_spatial, using_attention = DM(config.seq_len), False, False
     else:
@@ -159,6 +35,8 @@ def main(args, config):
 
     model.to(device)
     model.eval()
+
+    # plot_weights(model, 0, single_channel=False)
 
     loss_func = nn.MSELoss()
 
@@ -208,7 +86,12 @@ def main(args, config):
     chunk_predicted = None
     chunk_labels = None
     chunk_pos = None
+
+    total_time = 0
+    total_iterations = 0
     for current_iteration, (data, labels, pos, file_name) in enumerate(validate_set):
+        total_iterations = current_iteration
+        print(current_iteration)
         current_chunk += 1
         print(f"Scan: {(current_iteration // args.chunks) + 1} / "
               f"{len(data_loader) // args.chunks}. "
@@ -216,7 +99,11 @@ def main(args, config):
               f"{args.chunks}")
         data, labels = data.to(device), labels.to(device)
         attention = None
+
+        start_time = time.time()
         predicted = model.forward(data)
+        total_time += time.time() - start_time
+
         if isinstance(predicted, tuple):
             attention = predicted[1]
             predicted = predicted[0]
@@ -265,6 +152,7 @@ def main(args, config):
             chunk_labels = None
             chunk_pos = None
 
+    print("--- Average scan time: %s seconds ---" % (total_time / (total_iterations / args.chunks)))
     data_logger.on_epoch_end(1)
 
 

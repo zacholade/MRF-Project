@@ -169,24 +169,6 @@ def main(args, config):
     ax[0][0].tick_params(axis='both', which='major', labelsize=15)
     ax[1][0].tick_params(axis='both', which='major', labelsize=15)
     ax[0][1].tick_params(axis='both', which='major', labelsize=15)
-
-
-    # ax[1][1].set_xlim((200, 3000))
-    # ax[0][1].set_xlim((200, 3000))
-
-
-
-    # ax[1][1].set_ylim((50, 500))
-    # ax[0][1].set_ylim((50, 500))
-
-
-    # print(np.max(lut[:, 1]))
-    # print(lut[:, 1])
-    # for i, point in enumerate(predicted[:, 1]):
-    #     y = point
-    #     x = lut[i][1]
-    #     if 310 < y < 320 and 345 < x < 355:
-    #         print(lut[i])
     plt.show()
 
 

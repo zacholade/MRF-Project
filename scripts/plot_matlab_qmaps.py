@@ -9,16 +9,16 @@ def mape(pred, true):
 
 if __name__ == "__main__":
     subj = "subj2_fisp_slc8_23"
-    cs = 1
+    cs = 64
     algo = "BLIP"
-    file_name = f"CS{cs}_{algo}_{subj}.mat"
+    file_name = f"SNR{cs}_{algo}_{subj}.mat"
     label = np.load(f"Data/Uncompressed/Test/Labels/{subj}.npy")
     mat = scipy.io.loadmat(f"../CoverBLIP/CoverBLIP toolbox/data/qmaps/{file_name}")
     true_t1, true_t2, true_pd, pos, dn = label[:, :, 0], label[:, :, 1], label[:, :, 2], label[:, :, 3], label[:, :, 4]
     predicted = mat.get('qmap')[:, :, 0:2]
     predicted[true_pd == 0] = 0
     plot_maps(predicted, label[:, :, 0:2], None, epoch=0,
-        save_dir="../CoverBLIP/CoverBLIP toolbox/data/qmaps/plots", subj_name=f"CS{cs}_{algo}_{subj}.npy")
+        save_dir="../CoverBLIP/CoverBLIP toolbox/data/qmaps/plots", subj_name=f"SNR{cs}_{algo}_{subj}.npy")
 
 
     m = np.ma.masked_equal(true_pd, 0)

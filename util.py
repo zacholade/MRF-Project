@@ -5,15 +5,13 @@ import os
 from multiprocessing import Process
 
 import git
-import matplotlib
-import numpy
 import numpy as np
 import torch
 from matplotlib import pyplot as plt, cm as cm, pylab as pl
+from matplotlib.colors import LinearSegmentedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset
-
+from torch import nn
 
 logger = logging.getLogger("mrf")
 
@@ -560,3 +558,198 @@ def plot_1d_nlocal_attention(attention, data):
     # ax.set_yticks([50, 100, 150, 200, 250, 300])
     cbar.ax.set_ylabel("Normalised Attention Scores (a.u.)", labelpad=15, family='Arial', fontsize=15)
     plt.show()
+
+
+def plot_1d_nlocal_attention2(attention, data):
+    attention = attention.detach().cpu().numpy()
+    batch_index = 10
+    attention = attention[batch_index]
+    data = data[batch_index]
+    attention -= (1 / attention.shape[1])  # Normalise to 0. Would otherwise be about 0.0033 (1/300)
+    plt.tight_layout()
+    fig, ax = plt.subplots(6, 1, figsize=(12, 7))
+
+    plt.margins(0)
+    plt.xlabel("Time Point (or channel)", labelpad=20)
+    fig.text(0.05, 0.35, "Normalised Attention Score", rotation='vertical')
+
+    largest_value = 0
+    max_value = 0
+    for i, attention_line in enumerate(attention[np.array([0, 60, 120, 180, 240, 299])]):
+        max_value = max(np.max(np.abs(attention_line)), max_value)
+        print(i)
+        # ax[i//60].plot(np.zeros(len(attention_line)), linewidth=1, color='black')
+        ax[i].plot(attention_line)
+
+    nearest_005 = math.ceil(max_value * 200) / 200  # Round to nearest 0.005
+    for axis in range(6):
+        ax[axis].spines['top'].set_visible(False)
+        ax[axis].spines['right'].set_visible(False)
+        ax[axis].set_ylim([-nearest_005, nearest_005])
+        ax[axis].set_xlim([0, 300])
+        ax[axis].spines['bottom'].set_position('center')
+        # ax[axis].set_xticklabels(ax[axis].get_xticks(), rotation=90)
+
+    plt.show()
+    # Data plot
+    fig_data, ax_data = plt.subplots(1, 1, figsize=(12, 7))
+    ax_data.set_ylabel("Normalised fingeprint (a.u.)", family='Arial', fontsize=15)
+    ax_data.set_xlabel("Excitation number", family='Arial', fontsize=15)
+    plt.margins(0)
+    plt.grid()  # linewidth=0.1, color='black')
+    ax_data.spines['right'].set_linewidth(0.5)
+    ax_data.spines['top'].set_linewidth(0.5)
+    ax_data.spines['right'].set_color('grey')
+    ax_data.spines['top'].set_color('grey')
+    nearest_005 = math.ceil(np.max(np.abs(data)) * 20) / 20  # Round to nearest 0.05
+    ax_data.set_ylim([0, nearest_005])
+    ax_data.set_xlim([0, 300])
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    ax_data.plot(np.abs(data))
+
+    plt.show()
+
+
+def normalise(data):
+    """
+    Normalise an input between -1 and 1.
+    Used for normalising convolution weights in a suitable scale.
+    """
+    shape = data.shape
+    data = data.flatten()
+    normalised = 2*((data-min(data))/(max(data)-min(data))) -1
+    data = normalised.reshape(shape)
+    return data
+
+
+def plot_temporal_conv(t):
+    # get the number of kernals
+    num_kernels = t.shape[0]
+
+    # set the figure size
+    fig, ax_ = plt.subplots(4, 4, figsize=(6, 6))
+
+    i = 0
+    basic_cols = ['#FF0000', '#000000', '#00FF00']
+    my_cmap = LinearSegmentedColormap.from_list('mycmap', basic_cols)
+    for x in range(4):
+        for y in range(4):
+            ax = ax_[x][y]
+            kernel = t[i]
+            kernel = normalise(kernel)
+            im = ax.matshow(kernel, cmap=my_cmap, vmin=-1, vmax=1)
+            ax.set_xticks([]), ax.set_yticks([])
+            ax.set_xlabel(i + 1)
+            i+=1
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.colorbar(im, cax=cbar_ax, shrink=1.2)
+    plt.show()
+
+
+def plot_spatial_conv(t):
+    # get the number of kernals
+    num_kernels = t.shape[0]
+
+    # set the figure size
+    fig, ax_ = plt.subplots(1, 8, figsize=(6, 6))
+
+    i = 0
+    basic_cols = ['#FF0000', '#000000', '#00FF00']
+    my_cmap = LinearSegmentedColormap.from_list('mycmap', basic_cols)
+    for x in range(8):
+        ax = ax_[x]
+        kernel = t[i]
+        kernel = normalise(kernel)
+        im = ax.matshow(kernel, cmap=my_cmap, vmin=-1, vmax=1)
+
+        ax.set_xticks([]), ax.set_yticks([])
+        ax.set_xlabel(i + 1)
+        i+=1
+    fig.subplots_adjust(right=0.8)
+    cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+    fig.colorbar(im, cax=cbar_ax, shrink=1.2)
+    plt.show()
+
+
+def plot_weights(model, layer_num, single_channel=True, collated=False):
+    # extracting the model features at the particular layer number
+    layer = model.conv1[0].temporal_conv
+    # checking whether the layer is convolution layer or not
+    if isinstance(layer, nn.Conv3d):
+        # getting the weight tensor data
+        weight_tensor = layer.weight.data.squeeze()
+        plot_temporal_conv(weight_tensor)
+        plot_spatial_conv(weight_tensor)
+
+
+def plot_cbam_attention(attention, data):
+    batch_index = 0
+
+    fig, ax = plt.subplots(2, 1, figsize=(12, 7))
+
+    rf_pulses = list(np.load("Data/RFpulses.npy"))[:300]
+
+    ax[0].plot(rf_pulses)
+    ax[0].tick_params(axis='both', which='major', labelsize=11)
+    ax[0].set_ylabel("Flip angles (radians)", family='Arial', fontsize=15)
+    ax[0].set_xlabel("Timestep (or channel)", family='Arial', fontsize=15)
+    plt.margins(0)
+    # plt.grid()
+    ax[0].spines['right'].set_linewidth(0.5)
+    ax[0].spines['top'].set_linewidth(0.5)
+    ax[0].spines['right'].set_visible(False)
+    ax[0].spines['top'].set_visible(False)
+    ax[0].set_ylim([0, 1.2])
+    ax[0].set_xlim([0, 300])
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+
+
+    ax[1].plot(attention[batch_index, :, 1, 1])
+    plt.margins(0)
+    ax[1].tick_params(axis='both', which='major', labelsize=11)
+    ax[1].set_ylabel("Attention Score (a.u.)", family='Arial', fontsize=15)
+    ax[1].set_xlabel("Timestep (or channel)", family='Arial', fontsize=15)
+    ax[1].spines['right'].set_visible(False)
+    ax[1].spines['top'].set_visible(False)
+    ax[1].set_ylim([0.44, 0.56])
+    ax[1].set_xlim([0, 300])
+
+    plt.show()
+
+
+def log_in_vivo_sections(predicted, labels, data_logger):
+    white_matter_mask = torch.where((685-33 <= labels[:, 0]) & (labels[:, 0] <= 685+33), True, False)
+    predicted_white_matter_masked = predicted[white_matter_mask]
+    true_white_matter_masked = labels[white_matter_mask]
+
+    grey_matter_mask = torch.where((1180-104 <= labels[:, 0]) & (labels[:, 0] <= 1180+104), True, False)
+    predicted_grey_matter_masked = predicted[grey_matter_mask]
+    true_grey_matter_masked = labels[grey_matter_mask]
+
+    cbsf_mask = torch.where((4880-379 <= labels[:, 0]) & (labels[:, 0] <= 4880+251), True, False)
+    predicted_cbsf_masked = predicted[cbsf_mask]
+    true_cbsf_masked = labels[cbsf_mask]
+
+    # If statements in case there is no tissue in the range for that scan.
+    if true_cbsf_masked.size(0) != 0:
+        data_logger.log_error(predicted_white_matter_masked, true_white_matter_masked, None, "white")
+    if true_grey_matter_masked.size(0) != 0:
+        data_logger.log_error(predicted_grey_matter_masked, true_grey_matter_masked, None, "grey")
+    if true_cbsf_masked.size(0) != 0:
+        data_logger.log_error(predicted_cbsf_masked, true_cbsf_masked, None, "cbsf")
+
+
+def remove_zero_labels(predicted, labels, pos=None):
+    """
+    Some models return a full patch prediction (soyak, rca-unet).
+    In these cases, some labels will contain air. Remove these from predicted and labels
+    so we dont back prop on them as they are later masked
+    and so that we dont result in infinity values for MAPE due to label being zero.
+    """
+    mask = labels[:, 0] != 0
+    if pos is not None:
+        return predicted[mask], labels[mask], pos[mask]
+    return predicted[mask], labels[mask]

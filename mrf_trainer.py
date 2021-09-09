@@ -19,10 +19,10 @@ from datasets import PixelwiseDataset, ScanwiseDataset, PatchwiseDataset, ScanPa
 from logging_manager import setup_logging, LoggingMixin
 from models import (CohenMLP, OksuzRNN, Hoppe, RNNAttention, Song,
                     RCAUNet, PatchSizeTest, Balsiger, Soyak)
-from models.r2plus1d import R2Plus1D
 from models.r1d import R1D
-from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise
-from util import load_all_data_files, plot, get_exports_dir, plot_maps, plot_fp, get_inner_patch
+from models.r2plus1d import R2Plus1D
+from transforms import NoiseTransform, OnlyT1T2, ApplyPD, Normalise, Unnormalise, Abs
+from util import load_all_data_files, plot, get_exports_dir, plot_maps, get_inner_patch
 
 np.set_printoptions(threshold=sys.maxsize)
 
@@ -218,9 +218,9 @@ class TrainingAlgorithm(LoggingMixin):
         return predicted[mask], labels[mask]
 
     def loop(self, skip_valid):
-        validation_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Normalise(),
+        validation_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Abs(), Normalise(),
                                                     NoiseTransform(0, 0.01), OnlyT1T2()])
-        training_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Normalise(),
+        training_transforms = transforms.Compose([Unnormalise(), ApplyPD(), Abs(), Normalise(),
                                                   NoiseTransform(0, 0.01), OnlyT1T2()])
 
         if self.using_spatial:
@@ -243,6 +243,7 @@ class TrainingAlgorithm(LoggingMixin):
                                     file_limit=self.limit_number_files,
                                     compressed=True,
                                     debug=self.debug)
+
             training_dataset = PixelwiseDataset(train_data, train_labels, train_file_lens,
                                                 train_file_names, transform=training_transforms)
             validation_dataset = ScanwiseDataset(self.valid_chunks, valid_data, valid_labels, valid_file_lens,
@@ -276,9 +277,6 @@ class TrainingAlgorithm(LoggingMixin):
                                      f"{self.limit_iterations if (self.debug and self.limit_iterations > 0) else int(np.floor(len(training_dataset) / self.batch_size))}, "
                                      f"LR: {self.lr_scheduler.get_last_lr()[0]}, "
                                      f"Loss: {loss}")
-                    if attention is not None:
-                        ...
-                        # plot(plot_fp, attention[0].detach().cpu().numpy(), f"{epoch}_{current_iteration}", save_dir=self.export_dir)
 
             if not skip_valid:
                 with torch.no_grad():

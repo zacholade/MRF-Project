@@ -48,11 +48,6 @@ for data_file_name, label_file_name in zip(data_file_names, label_file_names):
         fp_compressed.append(data_file[x][y])
     fp_compressed = np.asarray(fp_compressed)
 
-    # recon = np.zeros((230, 230))
-    # x = indices_compressed // 230
-    # y = indices_compressed % 230
-    # recon[x, y] = t1_compressed[np.arange(len(indices_compressed))]
-
     labels = np.asarray([t1_compressed, t2_compressed, pd_compressed, indices_compressed])
     data = fp_compressed
 
