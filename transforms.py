@@ -86,10 +86,12 @@ class ApplyPD(BaseTransform):
         data *= pd[:, np.newaxis]  # Apply PD to the un-normalised data
         return data, label, pos, file_name
 
+
 class Abs(BaseTransform):
     def __call__(self, sample):
         data, label, pos, file_name = sample
         return np.abs(data), label, pos, file_name
+
 
 class SNRTransform(BaseTransform):
     """
